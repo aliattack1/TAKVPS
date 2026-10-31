@@ -36,6 +36,13 @@ MAX_SCROLLBACK_CONTROLS = 600
 SCROLL_BOTTOM_TOLERANCE_PX = 60
 
 
+def _is_mobile() -> bool:
+    """Detect if we're on a mobile platform (Android/iOS)."""
+    import os
+    return os.environ.get("FLET_PLATFORM") in ("android", "ios") or \
+           "android" in os.environ.get("FLET_APP_STORAGE_DATA", "").lower()
+
+
 def _span(text: str, style: tuple) -> ft.TextSpan:
     fg, bg, fl = style
     if fl & REV:
@@ -411,7 +418,7 @@ class TerminalView:
             content=self.out, bgcolor=BG, expand=True, padding=6, border_radius=8,
             on_tap_down=self._on_tap_down,
             on_hover=self._on_hover,
-            on_click=self._on_click,
+            on_click=self._on_output_tap,
         )
         self.title = ft.Text("", size=11, opacity=0.7, no_wrap=True)
         self.ctrl_btn = ft.TextButton("Ctrl", height=44, on_click=lambda _: ctl.toggle_ctrl())
@@ -451,9 +458,19 @@ class TerminalView:
         self._at_bottom = offset >= threshold
 
     def _maybe_scroll_to_bottom(self) -> None:
-        """Called from render() after new output is added. Only scrolls if the user
-        was already at the bottom, so reading old output isn't interrupted."""
-        if not self._at_bottom:
+        """Called from render() after new output is added.
+
+        Phase 15: respects the `terminal_auto_scroll` setting.
+        - When ON (default): always scrolls to the bottom on new output.
+        - When OFF: only scrolls when the user was already at the bottom
+          (the old Phase 13.8 "smart auto-scroll" behavior).
+        """
+        auto_scroll_setting = getattr(self.ctl.s, "terminal_auto_scroll", True)
+        if auto_scroll_setting:
+            # Always scroll to bottom — the user explicitly wants to follow output.
+            self._at_bottom = True     # keep the tracker in sync
+        elif not self._at_bottom:
+            # Smart mode: don't scroll if the user is reading older output.
             return
         # Flet's ListView doesn't expose scroll_to in 1.0 yet (auto_scroll=True is the
         # only built-in way), so we toggle auto_scroll off→on briefly to force a jump
@@ -461,7 +478,6 @@ class TerminalView:
         try:
             self.out.auto_scroll = True
             self.page.update()
-            # Switch back off so the next manual scroll doesn't get yanked.
             self.out.auto_scroll = False
         except Exception:  # noqa: BLE001
             pass
@@ -486,21 +502,27 @@ class TerminalView:
         app has enabled mouse reporting, send the SGR mouse sequence."""
         s = self.ctl.session
         if s is None or not s.screen.mouse_reporting:
-            return     # app hasn't requested mouse events — let the tap do nothing
+            self._focus_input()     # no mouse reporting → focus the input for mobile keyboard
+            return
         col, row = self._pixel_to_cell(getattr(e, "local_position", None))
-        # We don't know which button from Flet's TapEvent; default to left.
-        # Flet's on_tap_down fires on any button on desktop.
         seq = mouse_svc.encode_click(mouse_svc.BUTTON_LEFT, col, row)
         s.write(seq)
-        # If mode 1003 (any-event) is on, also send a release.
         if s.screen.mouse_any:
             rel_seq = mouse_svc.encode_click(mouse_svc.BUTTON_LEFT, col, row, release=True)
             s.write(rel_seq)
 
-    def _on_click(self, e) -> None:
-        """Phase 14 Part 9: fallback click handler (some platforms fire on_click
-        instead of on_tap_down). Same logic as _on_tap_down."""
-        self._on_tap_down(e)
+    def _on_output_tap(self, e) -> None:
+        """Phase 15: tapping the terminal area focuses the hidden input field,
+        which opens the mobile soft keyboard. On desktop this is a no-op
+        (keyboard events are captured via page.on_keyboard_event)."""
+        self._focus_input()
+
+    def _focus_input(self) -> None:
+        """Focus the hidden TextField to open the mobile soft keyboard."""
+        try:
+            self.page.run_task(self.input.focus)
+        except Exception:  # noqa: BLE001
+            pass
 
     def _on_hover(self, e) -> None:
         """Phase 14 Part 9: mouse motion. Only sent when mode 1003 (any-event)
@@ -618,13 +640,20 @@ class TerminalView:
 
     # ---------------------------------------------------------------- build
     def _make_input(self) -> ft.TextField:
-        """Phase 15 terminal overhaul: on desktop the TextField is hidden and
-        keyboard input goes through page.on_keyboard_event directly. On mobile
-        (where on_keyboard_event doesn't fire for printable chars), the
-        sentinel TextField stays as the soft-keyboard input mechanism."""
-        kw = dict(value=SENTINEL, hint_text="Tap to type", dense=True, on_change=self._on_input,
-                  on_submit=self._on_submit, border_radius=8, height=1, opacity=0,
-                  border=ft.InputBorder.NONE, filled=False)
+        """Phase 15 terminal overhaul: on desktop the TextField is hidden (keyboard
+        input goes through page.on_keyboard_event directly). On mobile it's visible
+        as a thin bar so the user can tap it to open the soft keyboard."""
+        if _is_mobile():
+            # Mobile: keep a visible thin input bar so tapping it opens the keyboard.
+            kw = dict(value=SENTINEL, hint_text="Tap to type…", dense=True,
+                      on_change=self._on_input, on_submit=self._on_submit,
+                      border_radius=8, height=44, opacity=0.6)
+        else:
+            # Desktop: hidden — keyboard events come through on_key directly.
+            kw = dict(value=SENTINEL, hint_text="", dense=True,
+                      on_change=self._on_input, on_submit=self._on_submit,
+                      border_radius=8, height=1, opacity=0,
+                      border=ft.InputBorder.NONE, filled=False)
         try:
             return ft.TextField(autocorrect=False, enable_suggestions=False, **kw)
         except TypeError:

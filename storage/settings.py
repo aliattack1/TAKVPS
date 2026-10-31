@@ -48,6 +48,7 @@ class Settings:
     alert_services: list[str] = field(default_factory=list)
     editor_font_size: int = 14
     terminal_font_size: int = 12
+    terminal_auto_scroll: bool = True   # Phase 15: always scroll terminal to bottom on new output
     editor_wrap: bool = True
     editor_backup: bool = False
     # Phase 14: real LineChart in the Monitor. Falls back to bar sparkline when

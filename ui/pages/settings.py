@@ -223,6 +223,11 @@ def settings_page(ctx: AppContext) -> ft.Control:
         ft.Divider(), h("Terminal"),
         ft.Dropdown(label="Font size", value=str(s.terminal_font_size), on_select=set_term_font,
                     options=[ft.DropdownOption(key=str(n), text=f"{n} pt") for n in (9, 10, 11, 12, 14, 16)]),
+        ft.Switch(label="Auto-scroll to bottom on new output", value=s.terminal_auto_scroll,
+                  on_change=lambda e: (setattr(s, "terminal_auto_scroll", bool(e.control.value)), store.save())),
+        ft.Text("When on (default), the terminal always jumps to the latest output. "
+                "Turn off if you want to scroll up and read older output without being "
+                "pulled back down.", size=12, opacity=0.7),
         ft.Divider(), h("Editor"),
         ft.Dropdown(label="Font size", value=str(s.editor_font_size), on_select=set_font,
                     options=[ft.DropdownOption(key=str(n), text=f"{n} pt") for n in (11, 12, 14, 16, 18, 20)]),
