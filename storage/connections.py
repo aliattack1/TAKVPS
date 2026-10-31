@@ -38,7 +38,7 @@ class ConnectionProfile:
     password_enc: str = ""
     key_enc: str = ""
     passphrase_enc: str = ""
-    # Phase 14 Part 5: per-server custom instructions for the AI assistant.
+    # per-server custom instructions for the AI assistant.
     # Free-form text the user writes (e.g. "This is production — don't restart
     # nginx during 09:00–17:00 UTC"). Appended to the system prompt when this
     # server is the active connection.

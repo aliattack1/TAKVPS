@@ -17,11 +17,11 @@ _KNOWN = {"ai", "user", "snippet", "deploy"}
 
 def activity_page(ctx: AppContext) -> ft.Control:
     page = ctx.page
-    state = {"f": "all", "recs": []}  # Phase 14 Part 12: recs loaded lazily
+    state = {"f": "all", "recs": []}  # recs loaded lazily
     search = ft.TextField(hint_text="Search commands", dense=True, prefix_icon=ft.Icons.SEARCH)
     seg = ft.SegmentedButton(selected=["all"], segments=[ft.Segment(value=k, label=ft.Text(v)) for k, v in FILTERS])
     lst = ft.ListView(expand=True, spacing=6)
-    # Phase 14 Part 12: defer the disk read to a background task so the page
+    # defer the disk read to a background task so the page
     # renders immediately with a "Loading…" placeholder instead of blocking.
     recs = []  # will be filled by _first()
 
@@ -77,7 +77,7 @@ def activity_page(ctx: AppContext) -> ft.Control:
         confirm(page, "Clear the activity log?", "This only removes the history on this device.", do, yes_label="Clear")
 
     def verify_integrity(_):
-        """Phase 14 Part 7: check the hash chain and show the result."""
+        """check the hash chain and show the result."""
         from services.audit_chain import summary_text, is_log_intact
         results = ctx.activity.verify()
         summary = summary_text(results)
@@ -112,7 +112,7 @@ def activity_page(ctx: AppContext) -> ft.Control:
 
 
 async def _first(draw, ctx, recs) -> None:
-    """Phase 14 Part 12: load activity records in the background, then draw."""
+    """load activity records in the background, then draw."""
     # Defer the disk read so the page renders immediately with "Loading…".
     await asyncio.sleep(0.01)
     recs.extend(ctx.activity.recent(300))

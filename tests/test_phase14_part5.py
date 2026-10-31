@@ -1,4 +1,4 @@
-"""Phase 14 Part 5 tests: per-server AI system prompts.
+"""per-server AI system prompts.
 
 Tests the pure layer: `build_system(server_note=...)` in `services/ai/chat.py`,
 the `ai_context` field on `ConnectionProfile`, and the storage round-trip.
@@ -19,7 +19,7 @@ from storage.connections import ConnectionProfile, ConnectionStore
 
 
 # ======================================================================
-# Phase 14 Part 5 — build_system with server_note
+# Part 5 — build_system with server_note
 # ======================================================================
 class TestBuildSystemWithServerNote(unittest.TestCase):
     def test_no_note_backwards_compatible(self):
@@ -82,7 +82,7 @@ class TestBuildSystemWithServerNote(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 5 — ConnectionProfile.ai_context field
+# Part 5 — ConnectionProfile.ai_context field
 # ======================================================================
 class TestConnectionProfileAiContext(unittest.TestCase):
     def test_default_empty(self):
@@ -108,7 +108,7 @@ class TestConnectionProfileAiContext(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 5 — storage round-trip (save/load)
+# Part 5 — storage round-trip (save/load)
 # ======================================================================
 class TestStorageRoundTrip(unittest.TestCase):
     def test_save_and_load_preserves_ai_context(self):
@@ -143,7 +143,7 @@ class TestStorageRoundTrip(unittest.TestCase):
             self.assertNotEqual(dup.id, p.id)
 
     def test_old_format_without_ai_context_loads(self):
-        """Profiles saved before Phase 14 Part 5 (no ai_context field) must
+        """Profiles saved before Part 5 (no ai_context field) must
         still load — the field defaults to empty."""
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "conns.json"
@@ -158,7 +158,7 @@ class TestStorageRoundTrip(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 5 — ChatController._server_note integration
+# Part 5 — ChatController._server_note integration
 # ======================================================================
 class TestServerNoteHelper(unittest.TestCase):
     """Exercises the ChatController._server_note() helper without the full UI.
@@ -205,7 +205,7 @@ class TestServerNoteHelper(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 5 — end-to-end: profile note → build_system
+# profile note → build_system
 # ======================================================================
 class TestEndToEnd(unittest.TestCase):
     def test_profile_note_flows_into_system_prompt(self):

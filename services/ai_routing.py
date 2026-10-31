@@ -1,4 +1,4 @@
-"""Phase 15 (D2) — Local-model-first routing.
+"""(D2) — Local-model-first routing.
 
 When the user has both a local AI profile (Ollama / LM Studio / vLLM on the
 same network) and a cloud profile, this module picks the local one when the

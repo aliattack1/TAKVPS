@@ -1,4 +1,4 @@
-"""Tools hub: one tap to any manager. Later phases add tiles here."""
+"""Tools hub: one tap to any manager page."""
 from __future__ import annotations
 
 import flet as ft
@@ -46,7 +46,7 @@ def tools_page(ctx: AppContext) -> ft.Control:
         content=ft.Column([ft.Icon(icon, size=28, color=ft.Colors.PRIMARY),
                            ft.Text(label, weight=ft.FontWeight.W_600),
                            ft.Text(desc, size=11, opacity=0.7)], spacing=4)) for key, label, icon, desc in TOOLS]
-    # Phase 18: config diff tool (opens a dialog, not a page)
+    # config diff tool (opens a dialog, not a page)
     def open_diff(_):
         from .config_diff import open_diff_dialog
         ctx.page.run_task(open_diff_dialog, ctx)
@@ -59,4 +59,4 @@ def tools_page(ctx: AppContext) -> ft.Control:
     return ft.ListView(padding=theme.SPACE, spacing=theme.SPACE, controls=[
         ft.Text("Tools", size=22, weight=ft.FontWeight.W_600),
         ft.Row(tiles + [diff_tile], wrap=True, spacing=theme.SPACE, run_spacing=theme.SPACE),
-        ft.Text("More tools arrive in later phases.", size=12, opacity=0.6)])
+    ])

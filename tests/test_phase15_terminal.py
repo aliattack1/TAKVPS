@@ -1,4 +1,4 @@
-"""Phase 15 terminal overhaul tests: function keys, direct keyboard capture."""
+"""function keys, direct keyboard capture."""
 from __future__ import annotations
 import sys, unittest
 from pathlib import Path
@@ -7,7 +7,7 @@ from services.terminal import key_sequence, ctrl_char
 
 
 class TestFunctionKeys(unittest.TestCase):
-    """Phase 15: F1-F12 sequences are now supported."""
+    """F1-F12 sequences are now supported."""
     def test_f1_through_f4(self):
         self.assertEqual(key_sequence("f1"), "\x1bOP")
         self.assertEqual(key_sequence("f2"), "\x1bOQ")
@@ -28,7 +28,7 @@ class TestFunctionKeys(unittest.TestCase):
 
 
 class TestInsertKey(unittest.TestCase):
-    """Phase 15: Insert key is now supported."""
+    """Insert key is now supported."""
     def test_insert(self):
         self.assertEqual(key_sequence("insert"), "\x1b[2~")
 

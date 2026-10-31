@@ -49,7 +49,7 @@ async def _go(ctx, it: Item) -> None:
 def open_palette(ctx) -> None:
     page = ctx.page
     items = build_items(ctx)
-    # Phase 18 fix: use expand=True instead of a fixed height so the list
+    # use expand=True instead of a fixed height so the list
     # shrinks when the keyboard opens on Android (the dialog's height is
     # constrained by the available viewport).
     results = ft.ListView(spacing=0, expand=True)

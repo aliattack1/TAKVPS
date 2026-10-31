@@ -1,4 +1,4 @@
-"""Phase 15 (C1) — Reverse-proxy & SSL manager (Caddy / Traefik).
+"""(C1) — Reverse-proxy & SSL manager (Caddy / Traefik).
 
 Detects which reverse proxy is installed (nginx already handled by Phase 10;
 this adds Caddy and Traefik) and provides config templates + status checks.

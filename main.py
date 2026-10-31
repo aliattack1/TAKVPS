@@ -12,7 +12,7 @@ from ui.shell import Shell
 
 
 async def _show_tour(ctx) -> None:
-    """Phase 15 (G1): a 4-card intro shown on first launch."""
+    """a 4-card intro shown on first launch."""
     page = ctx.page
     ctx.store.data.first_run_done = True
     ctx.store.save()
@@ -139,7 +139,7 @@ async def main(page: ft.Page) -> None:
         lock_now(first=True)
     else:
         await start()
-    # Phase 15 (G1): first-run tour.
+    # first-run tour.
     if not s.first_run_done:
         page.run_task(_show_tour, ctx)
 

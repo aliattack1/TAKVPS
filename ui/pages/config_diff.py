@@ -1,4 +1,4 @@
-"""Phase 18 — Server config diff: compare a file between two servers.
+"""compare a file between two servers.
 
 Opens a file on the active server and on another saved server, then shows
 a side-by-side or unified diff. Uses `diff` on the active server to compare

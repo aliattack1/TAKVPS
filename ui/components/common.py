@@ -17,7 +17,7 @@ def toast(page: ft.Page, text: str, error: bool = False) -> None:
 def toolbar(*controls: ft.Control, expand_title: bool = True) -> ft.Row:
     """A horizontally-scrollable row for page topbars and action bars.
 
-    Phase 14 fix: on narrow phones, action-button rows used to overflow off-screen
+    on narrow phones, action-button rows used to overflow off-screen
     because `ft.Row` doesn't scroll or wrap by default. Wrapping them in this
     helper makes the row scroll horizontally when there isn't room, so every
     button stays reachable. The title (first control) takes `expand=True` so it

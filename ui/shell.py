@@ -55,7 +55,7 @@ LIVE_KEYS = ("servers", "overview", "files", "snippets", "services", "cron", "pa
 BOTTOM_SLOTS = 4
 PANEL_WIDTH = 400
 FAB_KEYS = ("overview", "monitor", "servers", "tools", "settings")
-# Phase 18: pages that show a badge count (key → count function name on ctx)
+# pages that show a badge count (key → count function name on ctx)
 BADGE_KEYS = {"alerts": "_alert_count", "activity": "_activity_count"}
 
 
@@ -125,7 +125,7 @@ class Shell:
             saved.insert(1 if saved else 0, "monitor")
         if "editor" not in saved:
             saved.insert(saved.index("files") + 1 if "files" in saved else len(saved), "editor")
-        # Phase 13 fix: make 'tools' reachable from the bottom bar on phones.
+        # make 'tools' reachable from the bottom bar on phones.
         # Previously it was at index 5+ (buried in the drawer), so the only way
         # to reach it was the search palette. Now BOTTOM_SLOTS=4 and we ensure
         # tools sits inside the first 4 slots.
@@ -242,7 +242,7 @@ class Shell:
         if self.key == "files":
             return None
         title = self.ctx.active.name if self.ctx.active else "TAKVPS"
-        # Phase 14 fix: wrap the topbar buttons in a scrollable Row so they stay
+        # wrap the topbar buttons in a scrollable Row so they stay
         # reachable on narrow phones instead of overflowing off-screen.
         from .components.common import toolbar
         from .page_help import PAGE_HELP
@@ -261,7 +261,7 @@ class Shell:
                               selected=self.panel == "files", on_click=self._toggle_files)))
 
     def _show_help(self, text: str) -> None:
-        """Phase 15 (G2): show a help dialog for the current page."""
+        """show a help dialog for the current page."""
         dlg = ft.AlertDialog(
             scrollable=True,
             title=ft.Text("Help"), modal=True,
@@ -275,7 +275,7 @@ class Shell:
     def render(self) -> None:
         p = self.page
         self._wide = self._is_wide()
-        # Phase 14 Part 12: wrap the page build in a try/except so a construction
+        # wrap the page build in a try/except so a construction
         # error shows a friendly message instead of crashing the app.
         try:
             self.body.content = self.dests[self.index].build()
@@ -349,15 +349,20 @@ class Shell:
                 i = int(e.control.selected_index)
                 if i < BOTTOM_SLOTS:
                     self._select(i)
-                else:                               # "More" opens the full list
-                    e.control.selected_index = min(self.index, BOTTOM_SLOTS)
-                    p.show_drawer()
+                else:                               # "Settings" navigates to settings + opens drawer
+                    # First navigate to settings page
+                    self.select_key("settings")
+                    # Then open the drawer so other pages are reachable too
+                    try:
+                        p.show_drawer()
+                    except Exception:  # noqa: BLE001
+                        pass
 
             p.navigation_bar = ft.NavigationBar(
                 selected_index=min(self.index, BOTTOM_SLOTS),
                 destinations=[ft.NavigationBarDestination(icon=d.icon, label=d.label)
                               for d in self.dests[:BOTTOM_SLOTS]] +
-                             [ft.NavigationBarDestination(icon=ft.Icons.MENU, label="More")],
+                             [ft.NavigationBarDestination(icon=ft.Icons.SETTINGS, label="Settings")],
                 on_change=bar_pick)
             p.drawer = ft.NavigationDrawer(
                 selected_index=self.index,

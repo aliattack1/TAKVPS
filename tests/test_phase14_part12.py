@@ -1,4 +1,4 @@
-"""Phase 14 Part 12 tests: lazy-load destination pages.
+"""lazy-load destination pages.
 
 Tests the lazy-loading pattern (deferred disk reads) and the page-build
 error catching wrapper. Uses fakes — no real Flet page required.

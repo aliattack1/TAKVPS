@@ -1,4 +1,4 @@
-"""Phase 14 Part 2 — persistent fleet-run history (JSON Lines).
+"""Part 2 — persistent fleet-run history (JSON Lines).
 
 Each finished fleet run is appended as one line per server, so the Activity
 page and a future dedicated Fleet-History view can both read it. Mirrors the

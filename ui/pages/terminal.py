@@ -4,7 +4,7 @@ Input model (first try): a one-line TextField holds an invisible sentinel charac
 user types is diffed against the sentinel and sent straight to the PTY (so passwords, vim, etc.
 work); deleting the sentinel sends Backspace. A toolbar provides Esc/Tab/Ctrl/arrows/symbols.
 
-Phase 13 additions:
+additions:
 - Persistent sessions: if `tmux` is on the server, new terminals attach to a named tmux session
   so they survive SSH drops. A "Sessions" button lists/creates/attaches/kills them.
 - Long-press on any output row → "Send to AI" with that row + a few lines of surrounding context.
@@ -63,11 +63,11 @@ class TerminalController:
         self.view: Optional["TerminalView"] = None
         self.ctrl_armed = False
         self._clip = None
-        # Phase 13.1: persistent sessions via tmux on the server.
+        # persistent sessions via tmux on the server.
         self.tmux_installed: Optional[bool] = None    # None = unknown (probed lazily)
         self.tmux_sessions: list[tmux_svc.TmuxSession] = []
         self.last_session_name: str = ""               # the name we last used, for "Reattach"
-        # Phase 17: in-app command history (separate from shell's own history).
+        # in-app command history (separate from shell's own history).
         # Captures lines the user types (Enter-terminated), so ↑/↓ can recall
         # them without depending on the remote shell's history file.
         self.cmd_history: list[str] = []
@@ -137,7 +137,7 @@ class TerminalController:
             self.view.attach()
             self.page.update()
 
-    # ---- Phase 13.1: tmux session management ----
+    # ---- tmux session management ----
     async def refresh_tmux(self) -> None:
         """Probe tmux presence and refresh the list of running tmux sessions."""
         if self.ctx.ssh.status.value != "connected":
@@ -225,7 +225,7 @@ class TerminalController:
             self.view.refresh_ctrl()
             self.page.update()
 
-    # ---------------------------------------------------------------- Phase 17: command history
+    # ---------------------------------------------------------------- command history
     def _capture_cmd_line(self) -> None:
         """Capture the last line of terminal output as a typed command."""
         s = self.session
@@ -279,7 +279,7 @@ class TerminalController:
         self.send(cmd)
 
     def show_history_dialog(self) -> None:
-        """Phase 17: show a dialog listing the command history for easy recall."""
+        """show a dialog listing the command history for easy recall."""
         if not self.cmd_history:
             toast(self.page, "No command history yet.")
             return
@@ -304,7 +304,7 @@ class TerminalController:
                      ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
 
     def on_key(self, e) -> None:
-        """Phase 15 terminal overhaul: capture ALL keyboard events directly.
+        """capture ALL keyboard events directly.
 
         This replaces the old sentinel-TextField approach. Every key —
         printable, function keys, Tab, Ctrl+anything, arrows, Home/End/Ins —
@@ -362,7 +362,7 @@ class TerminalController:
         # ---- Enter / Backspace ----
         if key == "Enter":
             self.send_key("enter")
-            # Phase 17: capture the current input line for in-app history.
+            # capture the current input line for in-app history.
             # We read the last line of the terminal screen (the input line).
             self._capture_cmd_line()
             self.cmd_history_idx = -1     # reset browsing
@@ -371,7 +371,7 @@ class TerminalController:
             self.send_key("backspace")
             return
 
-        # ---- Phase 17: Ctrl+↑ / Ctrl+↓ for in-app command history ----
+        # ---- Ctrl+↑ / Ctrl+↓ for in-app command history ----
         # These are separate from shell's own ↑/↓ (which use plain ArrowUp/Down).
         # When the user does Ctrl+↑, we recall the previous command from our
         # local history and type it into the terminal (as if pasted).
@@ -445,7 +445,7 @@ class TerminalController:
             toast(self.page, "Couldn't access the clipboard here.", error=True)
 
     async def export_output(self) -> None:
-        """Phase 17: save terminal output to a local file via the file picker."""
+        """save terminal output to a local file via the file picker."""
         if not self.session:
             return
         text = self.session.screen.text()
@@ -516,7 +516,7 @@ class TerminalView:
         self._rows: list[ft.Text] = []
         self._scroll_ctrls: list[ft.Control] = []
         self._alt = False
-        # Phase 13.8: smart auto-scroll. We track whether the user is currently at
+        # smart auto-scroll. We track whether the user is currently at
         # the bottom of the output list. If they scrolled up to read older output,
         # we don't yank them back when new data arrives.
         self._at_bottom = True
@@ -526,7 +526,7 @@ class TerminalView:
         # auto_scroll is OFF now; we scroll manually in render() only when _at_bottom.
         self.out = ft.ListView(expand=True, spacing=0, auto_scroll=False,
                                on_scroll=self._on_scroll)
-        # Phase 14 Part 9: wrap the output ListView in a Container with mouse
+        # wrap the output ListView in a Container with mouse
         # handlers so we can capture clicks and wheel-scrolles when the remote
         # app (vim/less/tmux) has enabled mouse reporting.
         self.output_container = ft.Container(
@@ -538,7 +538,7 @@ class TerminalView:
         self.title = ft.Text("", size=11, opacity=0.7, no_wrap=True)
         self.ctrl_btn = ft.TextButton("Ctrl", height=44, on_click=lambda _: ctl.toggle_ctrl())
         self.input = self._make_input()
-        # Phase 14 Part 6: search-in-scrollback overlay. Hidden by default;
+        # search-in-scrollback overlay. Hidden by default;
         # the Find toolbar button toggles it.
         self._find_bar = self._make_find_bar()
         self._find_matches: list = []          # list of term_search.Match
@@ -575,10 +575,10 @@ class TerminalView:
     def _maybe_scroll_to_bottom(self) -> None:
         """Called from render() after new output is added.
 
-        Phase 15: respects the `terminal_auto_scroll` setting.
+        respects the `terminal_auto_scroll` setting.
         - When ON (default): always scrolls to the bottom on new output.
         - When OFF: only scrolls when the user was already at the bottom
-          (the old Phase 13.8 "smart auto-scroll" behavior).
+          (the old "smart auto-scroll" behavior).
         """
         auto_scroll_setting = getattr(self.ctl.s, "terminal_auto_scroll", True)
         if auto_scroll_setting:
@@ -597,7 +597,7 @@ class TerminalView:
         except Exception:  # noqa: BLE001
             pass
 
-    # ---------------------------------------------------------------- Phase 14 Part 9: mouse
+    # ---------------------------------------------------------------- mouse
     def _pixel_to_cell(self, local_pos) -> tuple[int, int]:
         """Convert a pixel position (from a Flet TapEvent/HoverEvent) to a
         1-based terminal cell coordinate (col, row)."""
@@ -613,7 +613,7 @@ class TerminalView:
         return (max(1, col), max(1, row))
 
     def _on_tap_down(self, e) -> None:
-        """Phase 14 Part 9: a tap (click) on the terminal output. If the remote
+        """a tap (click) on the terminal output. If the remote
         app has enabled mouse reporting, send the SGR mouse sequence."""
         s = self.ctl.session
         if s is None or not s.screen.mouse_reporting:
@@ -627,7 +627,7 @@ class TerminalView:
             s.write(rel_seq)
 
     def _on_output_tap(self, e) -> None:
-        """Phase 15: tapping the terminal area focuses the hidden input field,
+        """tapping the terminal area focuses the hidden input field,
         which opens the mobile soft keyboard. On desktop this is a no-op
         (keyboard events are captured via page.on_keyboard_event)."""
         self._focus_input()
@@ -640,7 +640,7 @@ class TerminalView:
             pass
 
     def _on_hover(self, e) -> None:
-        """Phase 14 Part 9: mouse motion. Only sent when mode 1003 (any-event)
+        """mouse motion. Only sent when mode 1003 (any-event)
         is on — vim uses this for mouse-aware cursor positioning."""
         s = self.ctl.session
         if s is None or not s.screen.mouse_reporting or not s.screen.mouse_any:
@@ -652,7 +652,7 @@ class TerminalView:
         seq = mouse_svc.encode_click(mouse_svc.BUTTON_RIGHT, col, row)
         s.write(seq)
 
-    # ---------------------------------------------------------------- Phase 14 Part 6: find-in-output
+    # ---------------------------------------------------------------- find-in-output
     def _make_find_bar(self) -> ft.Control:
         """A collapsible search bar above the terminal output. Hidden by default."""
         self._find_field = ft.TextField(
@@ -755,7 +755,7 @@ class TerminalView:
 
     # ---------------------------------------------------------------- build
     def _make_input(self) -> ft.TextField:
-        """Phase 15 terminal overhaul: on desktop the TextField is hidden (keyboard
+        """on desktop the TextField is hidden (keyboard
         input goes through page.on_keyboard_event directly). On mobile it's visible
         as a thin bar so the user can tap it to open the soft keyboard."""
         if _is_mobile():
@@ -809,7 +809,7 @@ class TerminalView:
                               on_click=lambda _: ctl.change_font(-1)),
                 ft.IconButton(ft.Icons.TEXT_INCREASE, tooltip="Larger", width=44, height=44,
                               on_click=lambda _: ctl.change_font(+1))]
-        # Phase 15: function key row (F1-F12) for mobile + desktop without hardware keyboard.
+        # function key row (F1-F12) for mobile + desktop without hardware keyboard.
         row3 = [k(f"F{i}", lambda i=i: ctl.send_key(f"f{i}")) for i in range(1, 13)]
         return ft.Column([
             ft.Row(row1, scroll=ft.ScrollMode.AUTO, spacing=0),
@@ -882,7 +882,7 @@ class TerminalView:
         self.input.value = SENTINEL
 
     def _on_input(self, e) -> None:
-        """Phase 15 fix: only process input from the sentinel TextField on mobile.
+        """only process input from the sentinel TextField on mobile.
         On desktop, on_keyboard_event handles everything — the TextField
         would double-send characters if we processed it here too."""
         if not _is_mobile():
@@ -969,7 +969,7 @@ class TerminalView:
 
         col.controls.append(ft.FilledButton("Copy all output", icon=ft.Icons.CONTENT_COPY,
                                              on_click=lambda _: self.page.run_task(copy_all)))
-        # Phase 17: export to file
+        # export to file
         async def export_file(_=None) -> None:
             self.page.pop_dialog()
             await self.ctl.export_output()
@@ -1041,7 +1041,7 @@ class TerminalView:
     def _scroll_text(self, row: list) -> ft.Control:
         text = ft.Text(spans=[_span(t, st) for t, st in Screen.spans_of_row(row)],
                        size=self.ctl.s.terminal_font_size, font_family="monospace", color=FG, no_wrap=True)
-        # Phase 13.7: long-press on any scrollback row opens a context menu with
+        # long-press on any scrollback row opens a context menu with
         # "Send to AI" (sends this row + a few surrounding lines to the chat).
         # on_long_press is supported on ft.Container in Flet 1.0+.
         row_text = "".join(ch for ch, _ in row).rstrip()
@@ -1050,7 +1050,7 @@ class TerminalView:
             ink=False)
 
     def _on_row_long_press(self, row_text: str) -> None:
-        """Phase 13.7: long-press → 'Send to AI' context menu."""
+        """long-press → 'Send to AI' context menu."""
         if not row_text:
             return
         # Build a small context: the pressed row + the 5 lines around it (3 before, 1 after).
@@ -1143,7 +1143,7 @@ class TerminalView:
         self.title.value = (scr.title or "") + ("" if s.alive else "   — session closed, tap + for a new one")
         if update:
             self.page.update()
-            # Phase 13.8: only follow new output if the user was already at the bottom.
+            # only follow new output if the user was already at the bottom.
             # _maybe_scroll_to_bottom is a no-op when _at_bottom is False.
             if new > 0 or relayout:
                 self._maybe_scroll_to_bottom()

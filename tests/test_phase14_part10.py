@@ -1,4 +1,4 @@
-"""Phase 14 Part 10 tests: encrypted export bundles."""
+"""encrypted export bundles."""
 from __future__ import annotations
 import json, sys, tempfile, unittest
 from pathlib import Path

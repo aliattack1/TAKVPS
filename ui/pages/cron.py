@@ -207,7 +207,7 @@ class CronView:
                            text_style=ft.TextStyle(font_family="monospace"),
                            hint_text="/usr/bin/backup.sh >> /var/log/backup.log 2>&1")
         preview = ft.Text("", size=12)
-        # Phase 15 (C3): quick preset buttons for common schedules.
+        # quick preset buttons for common schedules.
         presets = ft.Row([
             ft.TextButton("Every 5 min", on_click=lambda _: _apply_preset("*/5 * * * *")),
             ft.TextButton("Hourly", on_click=lambda _: _apply_preset("0 * * * *")),
@@ -218,7 +218,7 @@ class CronView:
         ], spacing=4, scroll=ft.ScrollMode.AUTO)
 
         def _apply_preset(expr_str: str) -> None:
-            """Phase 15 (C3): apply a preset cron expression."""
+            """apply a preset cron expression."""
             kind.value = "custom"
             expr.value = expr_str
             refresh()

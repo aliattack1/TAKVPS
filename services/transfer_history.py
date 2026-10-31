@@ -1,4 +1,4 @@
-"""Persistent transfer history (Phase 13.5).
+"""Persistent transfer history .
 
 The transfer queue (services/transfers.py) keeps items in memory only, so the
 history is lost when the app restarts. This module wraps that queue with a

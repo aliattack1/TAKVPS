@@ -1,4 +1,4 @@
-"""Phase 15 (G2) — Per-page help text.
+"""(G2) — Per-page help text.
 
 A JSON-like dict mapping page keys to short help strings. The shell's topbar
 shows a "?" icon that opens a dialog with the current page's help.

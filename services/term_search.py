@@ -1,11 +1,11 @@
-"""Phase 14 Part 6 — Search in terminal scrollback.
+"""Part 6 — Search in terminal scrollback.
 
 Pure helper that finds matches in the terminal's text (scrollback + visible
 screen) and returns their positions so the UI can highlight them and jump
 to them with prev/next buttons.
 
 The terminal emulator stores rows as lists of `(char, style)` cells (with
-`WIDE_CONT` sentinels for the second cell of wide chars — see Phase 14 Part 3).
+`WIDE_CONT` sentinels for the second cell of wide chars — see Part 3).
 This module works on the plain-text projection of those rows, so it stays
 decoupled from the emulator's internal representation.
 

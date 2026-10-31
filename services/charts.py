@@ -1,4 +1,4 @@
-"""Phase 14 helper: build line-chart point lists from the Monitor's history deques.
+"""build line-chart point lists from the Monitor's history deques.
 
 Pure logic — no Flet imports, so this is testable without a UI. The UI layer
 (`ui/components/gauge.LineChartSpark`) consumes the output of `build_series` and

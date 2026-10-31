@@ -1,4 +1,4 @@
-"""Persistent terminal sessions via the server's own tmux (Phase 13).
+"""Persistent terminal sessions via the server's own tmux .
 
 Nothing is installed: if `tmux` is missing, the UI shows a clear "tmux not installed"
 message and falls back to the existing in-memory shell. When present, sessions are
@@ -118,7 +118,7 @@ def default_session_name(prefix: str = "takvps") -> str:
 
 # Hook for the terminal controller: returns the command string to pass to
 # open_shell() for the requested session. None means "use the default shell"
-# (the original Phase 6 behavior).
+# (the original behavior).
 def resolve_shell_command(ssh, name: Optional[str]) -> Optional[str]:
     """If `name` is given and tmux is installed, return the attach command.
 

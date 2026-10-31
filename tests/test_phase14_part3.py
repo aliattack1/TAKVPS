@@ -1,4 +1,4 @@
-"""Phase 14 Part 3 tests: wide-character width lookup + terminal emulator behavior.
+"""wide-character width lookup + terminal emulator behavior.
 
 Tests both the pure `services/wcwidth.py` helper and the `Screen` emulator's
 handling of CJK / emoji / combining marks (no Flet imports).
@@ -16,7 +16,7 @@ from services.terminal import Screen
 
 
 # ======================================================================
-# Phase 14 Part 3 — services/wcwidth.py
+# Part 3 — services/wcwidth.py
 # ======================================================================
 class TestCharWidthASCII(unittest.TestCase):
     def test_ascii_letters_are_narrow(self):
@@ -130,7 +130,7 @@ class TestCharWidthCaching(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 3 — Screen emulator wide-char behavior
+# Part 3 — Screen emulator wide-char behavior
 # ======================================================================
 class TestScreenWideChars(unittest.TestCase):
     def test_ascii_unaffected(self):
@@ -354,7 +354,7 @@ class TestScreenWideRealistic(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 3 — backward compatibility (existing tests still pass)
+# Part 3 — backward compatibility (existing tests still pass)
 # ======================================================================
 class TestScreenBackwardCompat(unittest.TestCase):
     """Re-verifies a handful of behaviors from test_terminal.py to confirm the
@@ -374,7 +374,7 @@ class TestScreenBackwardCompat(unittest.TestCase):
     def test_linefeed(self):
         # This emulator treats `\n` as line-feed only (cursor down, no CR).
         # To get `abc\ndef`, you need `abc\r\ndef` (CR + LF). This matches
-        # the original Phase 6 behavior — we re-verify it here.
+        # the original behavior — we re-verify it here.
         s = Screen(10, 4)
         s.feed("abc\r\ndef")
         self.assertEqual(s.text(), "abc\ndef")

@@ -1,4 +1,4 @@
-"""Phase 15 tests: WireGuard, K8s, reverse-proxy, AI routing, web mode."""
+"""WireGuard, K8s, reverse-proxy, AI routing, web mode."""
 from __future__ import annotations
 import json, sys, unittest
 from pathlib import Path

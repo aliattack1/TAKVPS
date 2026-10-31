@@ -71,9 +71,9 @@ class FileBrowser:
         self._render()
         if ctx.ssh.status.value == "connected":
             self.page.run_task(self.load)
-        # Phase 13.4: hook the OS-level drop event (desktop only; no-op on mobile).
+        # hook the OS-level drop event (desktop only; no-op on mobile).
         self.attach_drop_zone()
-        # Phase 15: register a transfer-tick callback so the transfer progress bar updates.
+        # register a transfer-tick callback so the transfer progress bar updates.
         ctx._files_transfer_tick = self._on_transfer_tick
 
     def _on_transfer_tick(self) -> None:
@@ -318,7 +318,7 @@ class FileBrowser:
         self.ctx.store.save()
         self._refresh_ui()
 
-    # ------------------------------------------------------------ Phase 17: bookmarks
+    # ------------------------------------------------------------ bookmarks
     def _toggle_bookmark(self) -> None:
         """Bookmark/unbookmark the current folder."""
         path = self.cwd
@@ -478,7 +478,7 @@ class FileBrowser:
 
     # ------------------------------------------------------------ delete
     def delete(self, entries: list[RemoteEntry]) -> None:
-        """Phase 13.2: delete now goes to the recycle bin (~/.takvps-recycle/)
+        """delete now goes to the recycle bin (~/.takvps-recycle/)
         so it can be restored. A "Permanently delete" option is offered too."""
         bad = [e for e in entries if F.is_protected(e.path, self.ctx.ssh.home)]
         if bad:
@@ -684,7 +684,7 @@ class FileBrowser:
 
     # ------------------------------------------------------------ transfers
     def download(self, entries: list[RemoteEntry]) -> None:
-        """Phase 13.3: now supports folders. Folder downloads walk the remote tree
+        """now supports folders. Folder downloads walk the remote tree
         over SFTP, queue a directory-mkdir step, then enqueue one file transfer per file
         so the existing transfer queue / progress / cancel machinery handles it."""
         if not entries:
@@ -826,7 +826,7 @@ class FileBrowser:
         else:
             queue()
 
-    # ------------------------------------------------------------ Phase 13.4: drag-and-drop
+    # ------------------------------------------------------------ drag-and-drop
     def attach_drop_zone(self) -> None:
         """Hook the page-level drop event (desktop only) so dragging files from the
         OS file manager onto the file list uploads them. Mobile platforms don't fire
@@ -857,7 +857,7 @@ class FileBrowser:
             pass
 
     async def _upload_dropped(self, paths: list[str]) -> None:
-        """Phase 15 (A1): handle files AND folders dropped from the OS.
+        """handle files AND folders dropped from the OS.
         Folders are walked locally and uploaded as a recursive tree."""
         if not self._connected():
             return
@@ -893,7 +893,7 @@ class FileBrowser:
             toast(self.page, f"Uploading {len(folders)} folder(s)…")
 
     async def _upload_folder_dropped(self, local_path: str) -> None:
-        """Phase 15 (A1): walk a local folder and upload it recursively."""
+        """walk a local folder and upload it recursively."""
         folder_name = os.path.basename(local_path.rstrip("/\\"))
         remote_root = F.join(self.cwd, folder_name)
         try:

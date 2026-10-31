@@ -1,4 +1,4 @@
-"""Phase 14 Part 1 tests: chart helpers + LineChartSpark fallback behaviour.
+"""chart helpers + LineChartSpark fallback behaviour.
 
 Pure-logic only — we test `services/charts.py` (no Flet imports) and the
 fallback path of `LineChartSpark` (which exercises the bar sparkline).
@@ -17,7 +17,7 @@ from services import charts as charts_svc
 
 
 # ======================================================================
-# Phase 14 Part 1 — services/charts.py
+# Part 1 — services/charts.py
 # ======================================================================
 class TestChartsAvailable(unittest.TestCase):
     def test_returns_bool_and_caches(self):
@@ -139,7 +139,7 @@ class TestShouldUseLineCharts(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 1 — LineChartSpark fallback behaviour
+# Part 1 — LineChartSpark fallback behaviour
 # ======================================================================
 class TestLineChartSparkFallback(unittest.TestCase):
     """Exercises the bar-sparkline fallback path (no flet_charts needed)."""
@@ -172,7 +172,7 @@ class TestLineChartSparkFallback(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 1 — settings field + monitor wiring
+# Part 1 — settings field + monitor wiring
 # ======================================================================
 class TestPhase14Settings(unittest.TestCase):
     def test_monitor_line_charts_default_on(self):

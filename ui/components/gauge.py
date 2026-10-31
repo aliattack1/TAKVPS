@@ -1,6 +1,6 @@
 """Ring gauge and bar sparkline. Plain helper classes exposing `.control`.
 
-Phase 14: `LineChartSpark` uses `flet_charts.LineChart` when the package is
+`LineChartSpark` uses `flet_charts.LineChart` when the package is
 importable, and transparently falls back to the bar `Sparkline` otherwise
 (or when the user disables line charts in Settings).
 """
@@ -61,7 +61,7 @@ class Sparkline:
 
 
 class LineChartSpark:
-    """Phase 14: real `flet_charts.LineChart` sparkline.
+    """real `flet_charts.LineChart` sparkline.
 
     Falls back to the bar `Sparkline` automatically when:
       - the `flet-charts` package isn't installed (`charts_available()` → False)

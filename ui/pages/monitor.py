@@ -40,7 +40,7 @@ class MonitorView:
         self.health_txt = ft.Text("Waiting for data…")
         self.status = ft.Text("", size=11, opacity=0.6)
         self.g_cpu, self.g_ram, self.g_swap = RingGauge("CPU"), RingGauge("RAM"), RingGauge("Swap")
-        # Phase 14: use real `flet_charts.LineChart` sparklines when available
+        # use real `flet_charts.LineChart` sparklines when available
         # (and the user hasn't disabled them in Settings). LineChartSpark falls
         # back to the bar Sparkline on its own, so we always construct one and
         # let it pick.

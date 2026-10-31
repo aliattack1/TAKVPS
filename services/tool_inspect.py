@@ -1,4 +1,4 @@
-"""Phase 14 Part 8 — Tool-call inspection formatter.
+"""Part 8 — Tool-call inspection formatter.
 
 Pure helper that converts a list of tool-call dicts (as stored on `Msg.tool_calls`)
 into a human-readable, collapsible text block for the chat UI's "Show raw tool

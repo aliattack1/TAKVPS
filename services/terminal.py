@@ -4,7 +4,7 @@ Supported: printable text, CR/LF/BS/TAB, cursor movement, erase, insert/delete l
 scroll regions, SGR (16/256/true colour, bold/italic/underline/reverse), save/restore cursor,
 alternate screen (vim/less/htop/nano), application-cursor mode, cursor visibility, DSR/DA replies.
 
-Phase 14 Part 3: wide (CJK/emoji) glyph widths are now supported — wide characters
+wide (CJK/emoji) glyph widths are now supported — wide characters
 occupy two cells, the second cell holds a `WIDE_CONT` sentinel that the renderer
 skips. Combining marks (Mn/Me/Cf) attach to the previous char at zero width.
 Not supported: mouse reporting, charsets, double-width lines.
@@ -58,7 +58,7 @@ class Screen:
         self.cursor_visible = True
         self.app_cursor = False
         self.bracketed = False
-        # Phase 14 Part 9: mouse reporting modes. Set by DECSET 1000/1003/1006.
+        # mouse reporting modes. Set by DECSET 1000/1003/1006.
         # When mouse_button or mouse_any is on AND mouse_sgr is on, the UI
         # captures mouse events and sends them to the PTY via encode_sgr().
         self.mouse_button = False     # DECSET 1000: report button presses
@@ -79,7 +79,7 @@ class Screen:
     # ---------------------------------------------------------------- mouse
     @property
     def mouse_reporting(self) -> bool:
-        """Phase 14 Part 9: True when the remote app has requested mouse events.
+        """True when the remote app has requested mouse events.
         Requires at least one reporting mode (1000 or 1003) AND the SGR
         encoding (1006) — we don't emit legacy-format mouse events."""
         return (self.mouse_button or self.mouse_any) and self.mouse_sgr
@@ -172,7 +172,7 @@ class Screen:
     def _put(self, ch: str) -> None:
         """Write one character at the cursor.
 
-        Phase 14 Part 3: wide chars (CJK, emoji) occupy two cells — the first
+        wide chars (CJK, emoji) occupy two cells — the first
         holds the character, the second holds `WIDE_CONT`. Combining marks
         (Mn/Me/Cf, returned as width 0 by `char_width`) attach to the previous
         cell instead of advancing the cursor — that matches what real terminals
@@ -192,7 +192,7 @@ class Screen:
         if self.wrap_pending:
             self.cx, self.wrap_pending = 0, False
             self._lf()
-        # Phase 14 Part 3: a wide character needs TWO consecutive cells. If we're
+        # a wide character needs TWO consecutive cells. If we're
         # at the last column, there isn't room — wrap to the next line first
         # (real terminals do the same; otherwise the wide glyph would render in
         # just one cell and misalign everything after it).
@@ -347,7 +347,7 @@ class Screen:
                 self.grid, self.cx, self.cy, self.style, self.top, self.bottom = self._saved_main
                 self.alt_active, self._saved_main = False, None
             self.wrap_pending = False
-        # Phase 14 Part 9: mouse reporting modes.
+        # mouse reporting modes.
         elif n == 1000:
             self.mouse_button = on
         elif n == 1003:
@@ -377,7 +377,7 @@ class Screen:
         blank = (" ", (None, self.style[1], 0))
         row = self.grid[self.cy]
         a, b = (self.cx, self.cols) if mode == 0 else (0, self.cx + 1) if mode == 1 else (0, self.cols)
-        # Phase 14 Part 3: when erasing cells, also clear the *partner* cell of
+        # when erasing cells, also clear the *partner* cell of
         # any wide character we touch, so we don't leave a dangling half-glyph.
         # Detect pairs in the original row first, then blank cell + partner.
         for i in range(a, min(b, self.cols)):
@@ -454,7 +454,7 @@ class Screen:
     def _fit(row: list, cols: int) -> list:
         """Truncate or pad a row to exactly `cols` cells.
 
-        Phase 14 Part 3: if the cut would split a wide character (i.e. its first
+        if the cut would split a wide character (i.e. its first
         cell survives but its continuation cell is dropped), replace the orphaned
         first cell with a blank so we don't render a wide glyph in 1 cell.
         """
@@ -507,7 +507,7 @@ class Screen:
     def row_spans(self, y: int, cursor_x: Optional[int] = None) -> list[tuple[str, Style]]:
         spans: list[tuple[str, Style]] = []
         for x, (ch, st) in enumerate(self.grid[y]):
-            # Phase 14 Part 3: skip wide-char continuation cells — the wide
+            # skip wide-char continuation cells — the wide
             # char itself was already emitted in the previous cell.
             if is_wide_continuation(ch):
                 continue
@@ -534,7 +534,7 @@ class Screen:
     def text(self) -> str:
         rows = [] if self.alt_active else [r for r in self.scrollback]
         rows += self.grid
-        # Phase 14 Part 3: strip continuation cells so copy/paste gives just the
+        # strip continuation cells so copy/paste gives just the
         # wide char, no gap. Combining marks are already merged into their base
         # cell's string by `_put`, so they ride along here.
         lines = ["".join(ch for ch, _ in r if not is_wide_continuation(ch)).rstrip()

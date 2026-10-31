@@ -1,4 +1,4 @@
-"""Phase 13 tests: persistent terminals, recycle bin, folder transfers, AI tool-calling,
+"""persistent terminals, recycle bin, folder transfers, AI tool-calling,
 transfer history, smart auto-scroll behavior.
 
 Pure-logic only — the UI is not tested (per the user's "light testing" preference from Phase 5+).
@@ -26,7 +26,7 @@ from services.ai import tools as ai_tools
 
 
 # ======================================================================
-# Phase 13.1 — Persistent terminal sessions (tmux)
+# — Persistent terminal sessions (tmux)
 # ======================================================================
 class TestTmux(unittest.TestCase):
     def test_sanitize_name_accepts_safe_names(self):
@@ -110,7 +110,7 @@ class TestTmux(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 13.2 — Recycle Bin
+# — Recycle Bin
 # ======================================================================
 class TestRecycleBin(unittest.TestCase):
     def test_bin_path_under_home(self):
@@ -192,7 +192,7 @@ class TestRecycleBin(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 13.3 — Folder transfers
+# — Folder transfers
 # ======================================================================
 class TestFolderTransfer(unittest.TestCase):
     def test_build_plan_down_walks_tree(self):
@@ -259,7 +259,7 @@ class TestFolderTransfer(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 13.5 — Persistent transfer history
+# — Persistent transfer history
 # ======================================================================
 class TestTransferHistory(unittest.TestCase):
     def test_append_caps_at_keep_limit(self):
@@ -324,7 +324,7 @@ class TestTransferHistory(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 13.6 — Native AI tool-calling
+# — Native AI tool-calling
 # ======================================================================
 class TestAITools(unittest.TestCase):
     def test_supports_tools_for_known_kinds(self):
@@ -439,11 +439,11 @@ class TestAITools(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 13 bug fixes — SSH timeout + Tools page accessibility
+# bug fixes — SSH timeout + Tools page accessibility
 # ======================================================================
 class TestPhase13BugFixes(unittest.TestCase):
     def test_ssh_get_server_host_key_options_pattern(self):
-        """Phase 13 SSH bug: get_server_host_key doesn't accept login_timeout as a kwarg.
+        """get_server_host_key doesn't accept login_timeout as a kwarg.
         The fix wraps it in SSHClientConnectionOptions(options=...). Verify the pattern
         actually works against the installed asyncssh (skip if not installed)."""
         try:
@@ -462,14 +462,14 @@ class TestPhase13BugFixes(unittest.TestCase):
         self.assertNotIn("login_timeout", sig.parameters)
 
     def test_tools_in_default_nav_order(self):
-        """Phase 13 fix: 'tools' must be in DEFAULT_NAV so the bottom-bar shows it."""
+        """'tools' must be in DEFAULT_NAV so the bottom-bar shows it."""
         from storage.settings import DEFAULT_NAV
         self.assertIn("tools", DEFAULT_NAV)
         # And in the first 4 slots (so it shows in the bottom bar on phones).
         self.assertLessEqual(DEFAULT_NAV.index("tools"), 3)
 
     def test_settings_has_native_tools_flag(self):
-        """Phase 13.6: the AI native-tools toggle must exist on Settings."""
+        """the AI native-tools toggle must exist on Settings."""
         from storage.settings import Settings
         s = Settings()
         self.assertTrue(hasattr(s, "ai_native_tools"))

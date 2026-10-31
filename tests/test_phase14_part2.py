@@ -1,4 +1,4 @@
-"""Phase 14 Part 2 tests: fleet runner + fleet run history (pure logic).
+"""fleet runner + fleet run history (pure logic).
 
 The runner is exercised with fake `connect_and_run` coroutines so we can drive
 every state-machine branch (success, fail, error, timeout, skip, cancel)
@@ -53,7 +53,7 @@ async def slow_connect(run: FleetRun, cmd: str, sudo: bool, timeout: float) -> R
 
 
 # ======================================================================
-# Phase 14 Part 2 — FleetRunner state machine
+# Part 2 — FleetRunner state machine
 # ======================================================================
 class TestFleetRunnerSuccess(unittest.TestCase):
     def test_all_succeed(self):
@@ -215,7 +215,7 @@ class TestFleetRunnerRisk(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 2 — ordering + helpers
+# Part 2 — ordering + helpers
 # ======================================================================
 class TestOrderForDisplay(unittest.TestCase):
     def test_failed_first_then_done_then_running_then_skipped(self):
@@ -309,7 +309,7 @@ class TestFleetRunProperties(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 2 — fleet run history (storage)
+# Part 2 — fleet run history (storage)
 # ======================================================================
 class TestFleetHistory(unittest.TestCase):
     def test_append_and_read_roundtrip(self):

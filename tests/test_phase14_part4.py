@@ -1,4 +1,4 @@
-"""Phase 14 Part 4 tests: SSH key generation + install flow.
+"""SSH key generation + install flow.
 
 Tests the pure `services/sshkeygen.py` helper (key generation, public-key
 normalisation, install-command builder, already-installed detector). The UI
@@ -17,7 +17,7 @@ from services import users as U
 
 
 # ======================================================================
-# Phase 14 Part 4 — key generation
+# Part 4 — key generation
 # ======================================================================
 class TestGenerateKeypairEd25519(unittest.TestCase):
     def setUp(self):
@@ -92,7 +92,7 @@ class TestGenerateKeypairInvalidAlg(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 4 — default comment builder
+# Part 4 — default comment builder
 # ======================================================================
 class TestDefaultComment(unittest.TestCase):
     def test_with_user_and_host(self):
@@ -115,7 +115,7 @@ class TestDefaultComment(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 4 — public key normalisation
+# Part 4 — public key normalisation
 # ======================================================================
 class TestPublicKeyForAuthorizedKeys(unittest.TestCase):
     def test_strips_trailing_whitespace(self):
@@ -133,7 +133,7 @@ class TestPublicKeyForAuthorizedKeys(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 4 — install command builder
+# Part 4 — install command builder
 # ======================================================================
 class TestInstallCommand(unittest.TestCase):
     def test_builds_mkdir_and_append(self):
@@ -171,7 +171,7 @@ class TestInstallCommand(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 4 — already-installed detector
+# Part 4 — already-installed detector
 # ======================================================================
 class TestIsAlreadyInstalled(unittest.TestCase):
     def setUp(self):
@@ -211,7 +211,7 @@ class TestIsAlreadyInstalled(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 4 — end-to-end: generate → validate → install command
+# generate → validate → install command
 # ======================================================================
 class TestEndToEndKeygenFlow(unittest.TestCase):
     def setUp(self):
@@ -243,7 +243,7 @@ class TestEndToEndKeygenFlow(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 4 — constants
+# Part 4 — constants
 # ======================================================================
 class TestConstants(unittest.TestCase):
     def test_default_algorithm_is_ed25519(self):

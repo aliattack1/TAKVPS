@@ -1,4 +1,4 @@
-"""Phase 14 Part 3 — Wide-character width lookup for the terminal emulator.
+"""Part 3 — Wide-character width lookup for the terminal emulator.
 
 Real terminals (xterm, vim, htop) render East-Asian wide characters (CJK
 ideographs, full-width Latin, most emoji) as **two cells** wide. Phase 6's

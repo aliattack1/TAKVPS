@@ -79,7 +79,7 @@ def connections_page(ctx: AppContext) -> ft.Control:
                              on_click=lambda _: page.run_task(do_export, ctx))]),
         ft.FilledButton("Add", icon=ft.Icons.ADD, on_click=lambda _: open_editor(ctx, None))], scroll=ft.ScrollMode.AUTO)
 
-    # Phase 17: quick-connect recent servers bar.
+    # quick-connect recent servers bar.
     recent = [p for p in profiles if p.last_connected > 0]
     recent.sort(key=lambda p: p.last_connected, reverse=True)
     recent_bar = ft.Container(visible=False, padding=ft.Padding.symmetric(horizontal=theme.SPACE, vertical=2),
@@ -107,7 +107,7 @@ def connections_page(ctx: AppContext) -> ft.Control:
 
 
 async def _quick_connect(ctx: AppContext, p: ConnectionProfile) -> None:
-    """Phase 17: one-tap connect from the recent-servers bar."""
+    """one-tap connect from the recent-servers bar."""
     if await ctx.connect(p):
         ctx.navigate("overview")
 
@@ -136,7 +136,7 @@ def open_editor(ctx: AppContext, existing: ConnectionProfile | None) -> None:
     tags = ft.TextField(label="Tags (comma separated)", value=", ".join(p.tags))
     color = [p.color]
     swatch_row = ft.Row(wrap=True)
-    # Phase 14 Part 5: per-server custom instructions for the AI assistant.
+    # per-server custom instructions for the AI assistant.
     ai_note = ft.TextField(
         label="AI instructions for this server (optional)",
         value=getattr(p, "ai_context", "") or "",
@@ -168,7 +168,7 @@ def open_editor(ctx: AppContext, existing: ConnectionProfile | None) -> None:
         except Exception:  # noqa: BLE001
             toast(page, "Could not read that file. Paste the key text instead.", error=True)
 
-    # Phase 14 Part 4: in-app SSH key generation. Generates an ed25519 key pair
+    # in-app SSH key generation. Generates an ed25519 key pair
     # (the modern default) and fills the private-key field; the public key is
     # shown in a dialog so the user can install it on the server.
     def generate_key(_=None):

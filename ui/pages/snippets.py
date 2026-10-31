@@ -130,7 +130,7 @@ def snippets_page(ctx: AppContext) -> ft.Control:
                              on_click=lambda _: open_history(ctx, ""))]),
         ft.FilledButton("Add", icon=ft.Icons.ADD, on_click=lambda _: open_snippet_editor(ctx, None))], scroll=ft.ScrollMode.AUTO)
 
-    # Phase 18: search/filter bar for snippets.
+    # search/filter bar for snippets.
     search = ft.TextField(hint_text="Filter commands by name or text…", dense=True,
                           prefix_icon=ft.Icons.SEARCH, border_radius=8)
     filtered_items = list(items)     # will be re-filtered on search

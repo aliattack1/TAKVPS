@@ -1,4 +1,4 @@
-"""Phase 15 (F4) — Web mode documentation.
+"""(F4) — Web mode documentation.
 
 Flet can serve the app over HTTP. This module provides the configuration
 and security notes for running TAKVPS in web mode.

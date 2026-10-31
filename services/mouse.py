@@ -1,4 +1,4 @@
-"""Phase 14 Part 9 — Mouse reporting for the terminal emulator.
+"""Part 9 — Mouse reporting for the terminal emulator.
 
 Real terminals (xterm, vim, less, tmux) can request mouse event reporting via
 DEC private modes. When enabled, the terminal sends mouse clicks and

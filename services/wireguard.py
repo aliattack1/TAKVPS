@@ -1,4 +1,4 @@
-"""Phase 15 (C4) — WireGuard VPN manager.
+"""(C4) — WireGuard VPN manager.
 
 Manages a WireGuard setup on the server: generate keys, configure peers,
 show connection status, start/stop the interface. Client-only — just edits

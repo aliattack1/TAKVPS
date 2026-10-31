@@ -75,7 +75,7 @@ class AppContext:
         self.fleet: dict = {}                                  # last multi-server results
         self.palette_pages: Callable[[], list[tuple[str, str]]] = lambda: []
         self.system_notify: Callable[[str, str], bool] = lambda title, body: False   # hook: OS notifications
-        # Phase 18: badge counts for nav icons.
+        # badge counts for nav icons.
         self._alert_count: int = 0
         self._activity_count: int = 0
         self.alerts = AlertRunner(self.ssh, lambda: float(store.data.alert_interval), self._thresholds,
@@ -93,16 +93,16 @@ class AppContext:
         self.files_state = FilesState()
         self.transfers = TransferQueue(self.ssh, page.run_task, self._transfers_changed)
         self.transfers_view = None
-        # Phase 13.5: persistent transfer history — survives app restarts.
+        # persistent transfer history — survives app restarts.
         self.transfer_history: TransferHistory = load_history(history_path(data_dir()))
         self.open_editor: Callable[[str], None] = lambda path: toast(
-            self.page, "The code editor arrives in Phase 5.")
+            self.page, "The code editor is loading.")
         # set by the shell
         self.navigate: Callable[[str], None] = lambda key: None
         self.refresh_ui: Callable[[], None] = lambda: None
 
     def _transfers_changed(self) -> None:
-        # Phase 13.5: persist any newly-finished transfers to the history file.
+        # persist any newly-finished transfers to the history file.
         try:
             new_done = [t for t in self.transfers.items
                         if t.status in ("done", "failed", "cancelled")
@@ -117,7 +117,7 @@ class AppContext:
             pass
         if self.transfers_view:
             self.transfers_view.refresh()
-        # Phase 15: tick the file manager's transfer status bar.
+        # tick the file manager's transfer status bar.
         # The file manager lives in the FilesState; we find it via page_hooks
         # or just call a ctx-stored callback.
         cb = getattr(self, "_files_transfer_tick", None)
@@ -142,7 +142,7 @@ class AppContext:
     def _on_alert(self, a: Alert) -> None:
         self.alert_history.insert(0, a)
         del self.alert_history[50:]
-        self._alert_count += 1     # Phase 18: increment badge
+        self._alert_count += 1     # increment badge
         self.notify(a.title, a.detail)
 
     def notify(self, title: str, body: str) -> None:
@@ -318,7 +318,7 @@ class AppContext:
         try:
             self.activity.add(a.id if a else "", a.name if a else "", redact(cmd)[0], exit_code, source,
                               classify(cmd).level)
-            self._activity_count += 1     # Phase 18: increment badge
+            self._activity_count += 1     # increment badge
         except OSError:
             pass
 

@@ -1,4 +1,4 @@
-"""Phase 14 Part 9 tests: mouse reporting in the terminal.
+"""mouse reporting in the terminal.
 
 Tests the pure `services/mouse.py` helper (SGR encoding, mode detection,
 event parsing) and the `Screen` emulator's mouse-mode flags. No Flet imports.
@@ -20,7 +20,7 @@ from services.terminal import Screen
 
 
 # ======================================================================
-# Phase 14 Part 9 — MouseEvent.encode_sgr
+# Part 9 — MouseEvent.encode_sgr
 # ======================================================================
 class TestEncodeSGR(unittest.TestCase):
     def test_left_click(self):
@@ -91,7 +91,7 @@ class TestEncodeSGR(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 9 — convenience functions
+# Part 9 — convenience functions
 # ======================================================================
 class TestEncodeClick(unittest.TestCase):
     def test_basic_click(self):
@@ -122,7 +122,7 @@ class TestEncodeWheel(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 9 — mode detection
+# Part 9 — mode detection
 # ======================================================================
 class TestIsMouseMode(unittest.TestCase):
     def test_known_mouse_modes(self):
@@ -157,7 +157,7 @@ class TestShouldReport(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 9 — parse_sgr_response
+# Part 9 — parse_sgr_response
 # ======================================================================
 class TestParseSGRResponse(unittest.TestCase):
     def test_parse_click(self):
@@ -195,7 +195,7 @@ class TestParseSGRResponse(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 9 — flet_button_to_code
+# Part 9 — flet_button_to_code
 # ======================================================================
 class TestFletButtonToCode(unittest.TestCase):
     def test_left(self):
@@ -219,7 +219,7 @@ class TestFletButtonToCode(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 9 — Screen mouse-mode flags
+# Part 9 — Screen mouse-mode flags
 # ======================================================================
 class TestScreenMouseModes(unittest.TestCase):
     def test_defaults_off(self):
@@ -288,7 +288,7 @@ class TestScreenMouseModes(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 9 — realistic scenarios
+# Part 9 — realistic scenarios
 # ======================================================================
 class TestRealisticScenarios(unittest.TestCase):
     def test_vim_mouse_click_sequence(self):

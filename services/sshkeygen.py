@@ -1,10 +1,10 @@
-"""Phase 14 Part 4 — SSH key generation in-app.
+"""Part 4 — SSH key generation in-app.
 
 Generates ed25519 (default) and RSA key pairs in OpenSSH format, using the
 `asyncssh` package that's already a project dependency. The private key goes
 into the connection editor's "Private key" field (and from there into the
 encrypted vault); the public key is shown to the user so they can install it
-on the server via the existing Phase 11a `authorized_keys` flow.
+on the server via the existing `authorized_keys` flow.
 
 Pure: imports `asyncssh` lazily so the module is testable without it (the
 generation function just needs the package at call time, not at import time).

@@ -1,4 +1,4 @@
-"""Phase 14 Part 6 tests: search in terminal scrollback.
+"""search in terminal scrollback.
 
 Tests the pure `services/term_search.py` helper: pattern compilation, match
 finding, next/prev navigation, wide-char handling, summary formatting, and
@@ -38,7 +38,7 @@ def wide_row(text: str) -> list:
 
 
 # ======================================================================
-# Phase 14 Part 6 — rows_to_text
+# Part 6 — rows_to_text
 # ======================================================================
 class TestRowsToText(unittest.TestCase):
     def test_plain_text(self):
@@ -62,7 +62,7 @@ class TestRowsToText(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 6 — compile_pattern
+# Part 6 — compile_pattern
 # ======================================================================
 class TestCompilePattern(unittest.TestCase):
     def test_literal_pattern(self):
@@ -91,7 +91,7 @@ class TestCompilePattern(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 6 — find_matches
+# Part 6 — find_matches
 # ======================================================================
 class TestFindMatches(unittest.TestCase):
     def test_single_match(self):
@@ -178,7 +178,7 @@ class TestFindMatches(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 6 — search convenience wrapper
+# Part 6 — search convenience wrapper
 # ======================================================================
 class TestSearchWrapper(unittest.TestCase):
     def test_empty_query_returns_empty(self):
@@ -201,7 +201,7 @@ class TestSearchWrapper(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 6 — next_match navigation
+# Part 6 — next_match navigation
 # ======================================================================
 class TestNextMatch(unittest.TestCase):
     def setUp(self):
@@ -243,7 +243,7 @@ class TestNextMatch(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 6 — match_at_row
+# Part 6 — match_at_row
 # ======================================================================
 class TestMatchAtRow(unittest.TestCase):
     def test_returns_matches_on_row(self):
@@ -262,7 +262,7 @@ class TestMatchAtRow(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 6 — summary
+# Part 6 — summary
 # ======================================================================
 class TestSummary(unittest.TestCase):
     def test_no_matches(self):
@@ -278,7 +278,7 @@ class TestSummary(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 6 — is_valid_regex
+# Part 6 — is_valid_regex
 # ======================================================================
 class TestIsValidRegex(unittest.TestCase):
     def test_valid_regex(self):
@@ -298,7 +298,7 @@ class TestIsValidRegex(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 6 — Match dataclass
+# Part 6 — Match dataclass
 # ======================================================================
 class TestMatchDataclass(unittest.TestCase):
     def test_end_col(self):
@@ -311,7 +311,7 @@ class TestMatchDataclass(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 6 — realistic scenarios
+# Part 6 — realistic scenarios
 # ======================================================================
 class TestRealisticScenarios(unittest.TestCase):
     def test_log_search(self):

@@ -25,7 +25,7 @@ class TransfersView:
         self.refresh(update=False)
 
     def refresh(self, update: bool = True) -> None:
-        """Phase 13.5: render the live queue, then a persistent 'History' section below it."""
+        """render the live queue, then a persistent 'History' section below it."""
         active = [t for t in self.ctx.transfers.items if t.active]
         finished_live = [t for t in self.ctx.transfers.items if not t.active]
         history = list(reversed(self.ctx.transfer_history.items)) if self.ctx.transfer_history else []
@@ -39,7 +39,7 @@ class TransfersView:
             controls.append(ft.Container(padding=ft.Padding.only(top=4)))
             controls.append(ft.Text("This session", size=12, weight=ft.FontWeight.W_600, opacity=0.8))
             controls += [self._row(t) for t in list(reversed(finished_live))[:20]]
-        # --- Persistent history (Phase 13.5) ---
+        # --- Persistent history  ---
         if history:
             controls.append(ft.Container(padding=ft.Padding.only(top=4)))
             controls.append(ft.Row([
@@ -76,7 +76,7 @@ class TransfersView:
                       vertical_alignment=ft.CrossAxisAlignment.START)
 
     def _history_row(self, h) -> ft.Control:
-        """Phase 13.5: one row per persisted transfer item (read-only)."""
+        """one row per persisted transfer item (read-only)."""
         label = _HIST_LABEL.get(h.status, h.status)
         when = time.strftime("%Y-%m-%d %H:%M", time.localtime(h.finished or h.created))
         err = f" — {h.error}" if h.error else ""

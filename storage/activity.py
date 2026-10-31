@@ -1,6 +1,6 @@
 """Local activity log of commands the app ran on servers (JSON lines).
 
-Phase 14 Part 7: each record now carries a `prev_hash` and `hash` field
+each record now carries a `prev_hash` and `hash` field
 forming a tamper-evident chain (see `services/audit_chain.py`). Editing a
 single record in the file breaks the chain and is detected by `verify()`.
 Old records (pre-Phase-14-Part-7) don't have hash fields and are reported
@@ -41,7 +41,7 @@ class ActivityLog:
             self._last_hash = self._read_last_hash()
         rec = {"ts": time.time(), "conn": conn_id, "name": conn_name, "cmd": command[:2000],
                "exit": exit_code, "source": source, "risk": risk}
-        # Phase 14 Part 7: add chained hash fields for tamper-evidence.
+        # add chained hash fields for tamper-evidence.
         rec = add_chain_fields(rec, self._last_hash)
         self._last_hash = rec["hash"]
         with open(self.path, "a", encoding="utf-8") as f:
@@ -76,7 +76,7 @@ class ActivityLog:
         return out
 
     def verify(self) -> list:
-        """Phase 14 Part 7: verify the hash chain across all records.
+        """verify the hash chain across all records.
 
         Returns a list of `audit_chain.VerifyResult` objects, one per record.
         Use `audit_chain.summary_text(results)` for a one-line status, or

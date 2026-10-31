@@ -20,7 +20,7 @@ class Msg:
     exit: Optional[int] = None
     ai: bool = False                # command was AI-initiated
     ts: float = field(default_factory=time.time)
-    # Phase 14 Part 8: when the assistant used native tool-calling (Phase 13.6),
+    # when the assistant used native tool-calling ,
     # this holds the structured tool calls so the UI can render them for inspection.
     # Each entry is a dict with keys: id, name, args (dict), and optionally result_text + result_exit.
     # Stored as a list of dicts (not ToolCall dataclasses) so it survives JSON serialization
@@ -178,7 +178,7 @@ _MODE["agent"] = _MODE["ask"]
 def build_system(mode: str, context: str, server_note: str = "") -> str:
     """Build the system prompt for the AI assistant.
 
-    Phase 14 Part 5: `server_note` is the per-server custom instructions from
+    `server_note` is the per-server custom instructions from
     the connection profile (e.g. "This is production — don't restart nginx
     during 09:00–17:00 UTC"). When present, it's prepended to the rest of the
     system prompt so the model treats it as a hard constraint.

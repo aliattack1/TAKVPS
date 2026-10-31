@@ -45,7 +45,7 @@ async def stream_chat(cfg: ProviderConfig, messages: list[dict], system: str) ->
         raise ProviderError(f"Network error talking to {host}.") from e
 
 
-# ---- Phase 13.6: native tool-calling streaming -----------------------------
+# ---- native tool-calling streaming -----------------------------
 #
 # stream_chat_with_tools yields ChatEvent dicts:
 #   {"type": "text", "delta": "..."}                     → assistant text delta

@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 DEFAULT_NAV = ["overview", "monitor", "files", "tools", "terminal", "editor"]
-# Phase 13 fix: 'tools' is the hub for every manager (Docker, Nginx, Cron, ...).
+# 'tools' is the hub for every manager (Docker, Nginx, Cron, ...).
 # Without it in the bottom bar, the only way to reach the hub on a phone was the
 # search palette — that was the bug. Migration in ui/shell.py adds it to existing
 # installations at index 3 (4th slot) so the bottom bar shows overview/monitor/
@@ -32,14 +32,14 @@ class Settings:
     safe_mode: bool = False
     last_connection_id: str = ""
     connect_on_launch: bool = False
-    first_run_done: bool = False      # Phase 15 (G1): first-run tour shown?
+    first_run_done: bool = False      # first-run tour shown?
     ai_active_profile: str = ""
     ai_default_mode: str = "suggest"
     ai_step_limit: int = 8
-    ai_native_tools: bool = True    # Phase 13.6: use native tool-calling when the provider supports it
-    ai_show_tool_calls: bool = False  # Phase 14 Part 8: show raw tool-call payloads in the chat
-    ai_prefer_local: bool = False     # Phase 15 (D2): prefer local model when on same network
-    fleet_concurrency: int = 4        # Phase 15 (E2): max parallel SSH connections for fleet ops
+    ai_native_tools: bool = True    # use native tool-calling when the provider supports it
+    ai_show_tool_calls: bool = False  # show raw tool-call payloads in the chat
+    ai_prefer_local: bool = False     # prefer local model when on same network
+    fleet_concurrency: int = 4        # max parallel SSH connections for fleet ops
     ai_context: dict = field(default_factory=lambda: {
         "os": True, "shell": True, "cwd": True, "pkg": True, "term": 0, "services": False})
     env_targets: dict = field(default_factory=dict)       # .env path -> service/container to restart
@@ -48,16 +48,16 @@ class Settings:
     alert_services: list[str] = field(default_factory=list)
     editor_font_size: int = 14
     terminal_font_size: int = 12
-    terminal_auto_scroll: bool = True   # Phase 15: always scroll terminal to bottom on new output
+    terminal_auto_scroll: bool = True   # always scroll terminal to bottom on new output
     editor_wrap: bool = True
     editor_backup: bool = False
-    # Phase 14: real LineChart in the Monitor. Falls back to bar sparkline when
+    # real LineChart in the Monitor. Falls back to bar sparkline when
     # flet-charts isn't installed (see services/charts.charts_available).
     monitor_line_charts: bool = True
     files_sort: str = "name"
     files_reverse: bool = False
     files_hidden: bool = False
-    file_bookmarks: list[str] = field(default_factory=list)   # Phase 17: starred folder paths
+    file_bookmarks: list[str] = field(default_factory=list)   # starred folder paths
     download_dir: str = ""
     thr_cpu: list[int] = field(default_factory=lambda: [70, 90])
     thr_ram: list[int] = field(default_factory=lambda: [80, 92])

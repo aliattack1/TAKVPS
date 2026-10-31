@@ -375,7 +375,7 @@ class EditorController:
         toast(self.page, "Wrap applies to the highlighted view; the edit box always wraps.")
 
     def _toggle_line_numbers(self) -> None:
-        """Phase 18: toggle line numbers in the highlighted view."""
+        """toggle line numbers in the highlighted view."""
         self.show_line_numbers = not getattr(self, "show_line_numbers", True)
         if self.view_mode == "view":
             self._render_area()

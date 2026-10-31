@@ -1,4 +1,4 @@
-"""Phase 14 Part 7 tests: audit log tamper-evidence (chained hash).
+"""audit log tamper-evidence (chained hash).
 
 Tests the pure `services/audit_chain.py` helper and the `ActivityLog.verify()`
 method. No Flet imports.
@@ -20,7 +20,7 @@ from storage.activity import ActivityLog
 
 
 # ======================================================================
-# Phase 14 Part 7 — canonical_json
+# Part 7 — canonical_json
 # ======================================================================
 class TestCanonicalJson(unittest.TestCase):
     def test_sorted_keys(self):
@@ -54,7 +54,7 @@ class TestCanonicalJson(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 7 — compute_hash
+# Part 7 — compute_hash
 # ======================================================================
 class TestComputeHash(unittest.TestCase):
     def test_returns_hex_string(self):
@@ -86,7 +86,7 @@ class TestComputeHash(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 7 — add_chain_fields
+# Part 7 — add_chain_fields
 # ======================================================================
 class TestAddChainFields(unittest.TestCase):
     def test_adds_prev_hash_and_hash(self):
@@ -122,7 +122,7 @@ class TestAddChainFields(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 7 — verify_records
+# Part 7 — verify_records
 # ======================================================================
 class TestVerifyRecords(unittest.TestCase):
     def setUp(self):
@@ -209,7 +209,7 @@ class TestVerifyRecords(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 7 — summary helpers
+# Part 7 — summary helpers
 # ======================================================================
 class TestSummaryHelpers(unittest.TestCase):
     def test_verify_summary_counts(self):
@@ -262,7 +262,7 @@ class TestSummaryHelpers(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 7 — ActivityLog integration
+# Part 7 — ActivityLog integration
 # ======================================================================
 class TestActivityLogChain(unittest.TestCase):
     def test_add_produces_chained_records(self):

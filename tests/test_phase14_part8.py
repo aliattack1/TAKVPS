@@ -1,4 +1,4 @@
-"""Phase 14 Part 8 tests: tool-call inspection formatter.
+"""tool-call inspection formatter.
 
 Tests the pure `services/tool_inspect.py` helper and the new `Msg.tool_calls`
 field. No Flet imports.
@@ -17,7 +17,7 @@ from services.ai.chat import Msg
 
 
 # ======================================================================
-# Phase 14 Part 8 — format_tool_call
+# Part 8 — format_tool_call
 # ======================================================================
 class TestFormatToolCall(unittest.TestCase):
     def test_basic_call(self):
@@ -96,7 +96,7 @@ class TestFormatToolCall(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 8 — format_tool_calls (list)
+# Part 8 — format_tool_calls (list)
 # ======================================================================
 class TestFormatToolCalls(unittest.TestCase):
     def test_empty_list(self):
@@ -122,7 +122,7 @@ class TestFormatToolCalls(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 8 — count / has / summary
+# Part 8 — count / has / summary
 # ======================================================================
 class TestCountHasSummary(unittest.TestCase):
     def test_count_empty(self):
@@ -160,7 +160,7 @@ class TestCountHasSummary(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 8 — Msg.tool_calls field + serialization
+# Part 8 — Msg.tool_calls field + serialization
 # ======================================================================
 class TestMsgToolCallsField(unittest.TestCase):
     def test_default_empty(self):
@@ -201,7 +201,7 @@ class TestMsgToolCallsField(unittest.TestCase):
 
 
 # ======================================================================
-# Phase 14 Part 8 — end-to-end formatting
+# Part 8 — end-to-end formatting
 # ======================================================================
 class TestEndToEnd(unittest.TestCase):
     def test_full_request_result_cycle(self):

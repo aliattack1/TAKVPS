@@ -1,6 +1,6 @@
 """Multi-server dashboard: one light, read-only check per saved server, run in parallel.
 
-Phase 14 Part 2: also lets you run a snippet (or one-off command) across every
+also lets you run a snippet (or one-off command) across every
 saved server in parallel, with a live per-server progress dialog and a Stop-all
 button. The runner is in `services/fleet_runner.py`; this file wires it to Flet.
 """
@@ -127,7 +127,7 @@ class FleetView:
     def __init__(self, ctx: AppContext) -> None:
         self.ctx, self.page = ctx, ctx.page
         self.busy = False
-        # Phase 14 Part 2: live fleet-run dialog state.
+        # live fleet-run dialog state.
         self.runner: FleetRunner | None = None
         self.fleet_runs: list[FleetRun] = []
         self.fleet_dialog: ft.AlertDialog | None = None
@@ -160,7 +160,7 @@ class FleetView:
         self.busy = True
         self.progress.visible = True
         self.page.update()
-        # Phase 15 (E2): configurable concurrency cap from settings.
+        # configurable concurrency cap from settings.
         sem = asyncio.Semaphore(max(1, min(16, getattr(self.ctx.store.data, "fleet_concurrency", 4))))
 
         async def one(p: ConnectionProfile) -> None:
@@ -207,7 +207,7 @@ class FleetView:
         if await self.ctx.connect(p):
             self.ctx.navigate("overview")
 
-    # ---------------------------------------------------------------- Phase 14 Part 2: fleet run
+    # ---------------------------------------------------------------- fleet run
     def open_run_dialog(self) -> None:
         """Step 1: pick what to run — a one-off command, or a saved snippet."""
         profiles = self.ctx.conns.list()

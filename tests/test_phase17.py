@@ -1,4 +1,4 @@
-"""Phase 17 tests: command history, file bookmarks, quick-connect."""
+"""command history, file bookmarks, quick-connect."""
 from __future__ import annotations
 import sys, unittest
 from pathlib import Path
@@ -7,7 +7,7 @@ from services.terminal import key_sequence
 
 
 class TestCommandHistoryKeys(unittest.TestCase):
-    """Phase 17: Ctrl+U (clear line) is used by the history recall."""
+    """Ctrl+U (clear line) is used by the history recall."""
     def test_ctrl_u_is_correct(self):
         # Ctrl+U = \x15 (the "clear line" control code)
         self.assertEqual(key_sequence("backspace"), "\x7f")
@@ -15,7 +15,7 @@ class TestCommandHistoryKeys(unittest.TestCase):
 
 
 class TestFileBookmarks(unittest.TestCase):
-    """Phase 17: file_bookmarks field exists on Settings."""
+    """file_bookmarks field exists on Settings."""
     def test_default_empty(self):
         from storage.settings import Settings
         s = Settings()
@@ -44,7 +44,7 @@ class TestFileBookmarks(unittest.TestCase):
 
 
 class TestQuickConnect(unittest.TestCase):
-    """Phase 17: ConnectionProfile has last_connected for sorting recent servers."""
+    """ConnectionProfile has last_connected for sorting recent servers."""
     def test_last_connected_default_zero(self):
         from storage.connections import ConnectionProfile
         p = ConnectionProfile(name="t", host="h", username="u")
@@ -63,7 +63,7 @@ class TestQuickConnect(unittest.TestCase):
 
 
 class TestTerminalExportFilename(unittest.TestCase):
-    """Phase 17: export_output generates a timestamped filename."""
+    """export_output generates a timestamped filename."""
     def test_filename_format(self):
         import time
         fname = f"terminal_{time.strftime('%Y%m%d_%H%M%S')}.txt"

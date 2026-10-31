@@ -1,4 +1,4 @@
-"""Phase 18 tests: snippets search, config diff, badges, editor line numbers."""
+"""snippets search, config diff, badges, editor line numbers."""
 from __future__ import annotations
 import sys, unittest
 from pathlib import Path
@@ -7,7 +7,7 @@ import difflib
 
 
 class TestSnippetsFilter(unittest.TestCase):
-    """Phase 18: the snippets page can filter by name or command text."""
+    """the snippets page can filter by name or command text."""
     def test_filter_matches_name(self):
         snippets = [("backup", "tar -czf /backup.tar.gz /home"),
                     ("deploy", "git pull && npm run build")]
@@ -41,7 +41,7 @@ class TestSnippetsFilter(unittest.TestCase):
 
 
 class TestConfigDiff(unittest.TestCase):
-    """Phase 18: unified diff between two file contents."""
+    """unified diff between two file contents."""
     def test_identical_files(self):
         a = "line1\nline2\nline3\n"
         b = "line1\nline2\nline3\n"
@@ -72,7 +72,7 @@ class TestConfigDiff(unittest.TestCase):
 
 
 class TestBadgeCounts(unittest.TestCase):
-    """Phase 18: alert and activity badge counters exist on settings/context."""
+    """alert and activity badge counters exist on settings/context."""
     def test_alert_count_default(self):
         from storage.settings import Settings
         s = Settings()
@@ -97,7 +97,7 @@ class TestBadgeCounts(unittest.TestCase):
 
 
 class TestEditorLineNumbers(unittest.TestCase):
-    """Phase 18: line numbers toggle defaults to True."""
+    """line numbers toggle defaults to True."""
     def test_default_true(self):
         class FakeEditor:
             show_line_numbers = True

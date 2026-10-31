@@ -44,7 +44,7 @@ class ChatController:
         self.task: Optional[asyncio.Task] = None
         self.running = False
         self.pending_prefill: Optional[str] = None
-        # Phase 13.6: tool results waiting to be sent in the next request.
+        # tool results waiting to be sent in the next request.
         # Each entry is a provider-shaped dict ready for the API call.
         self._tool_result_msgs: list[dict] = []
 
@@ -65,7 +65,7 @@ class ChatController:
         if p is None:
             lst = self.ctx.ai_profiles.list()
             p = lst[0] if lst else None
-        # Phase 15 (D2): if "prefer local" is on, and the active profile isn't
+        # if "prefer local" is on, and the active profile isn't
         # local, try to find a local profile on the same network.
         if p and getattr(self.s, "ai_prefer_local", False):
             from services.ai_routing import is_local_profile, pick_best_profile
@@ -113,7 +113,7 @@ class ChatController:
         return build_context(opts, facts, tail, services)
 
     def _server_note(self) -> str:
-        """Phase 14 Part 5: per-server custom instructions from the active
+        """per-server custom instructions from the active
         connection profile. Empty when no server is connected or the user
         hasn't written a note for this server."""
         a = self.ctx.active
@@ -158,8 +158,8 @@ class ChatController:
         steps = 0
         try:
             while True:
-                # Phase 13.6: prefer native tool-calling when enabled and supported;
-                # otherwise fall back to the Phase 7 structured (bash-block) path.
+                # prefer native tool-calling when enabled and supported;
+                # otherwise fall back to the structured (bash-block) path.
                 use_tools = self.s.ai_native_tools and self._provider_supports_tools()
                 if use_tools:
                     reply, calls = await self._reply_with_tools()
@@ -171,7 +171,7 @@ class ChatController:
                     break
                 # Native tool-calling path: if the model emitted tool calls, run them.
                 if calls:
-                    # Phase 14 Part 8: the assistant message `m` already has the
+                    # the assistant message `m` already has the
                     # tool_calls attached (from _reply_with_tools). We'll update
                     # each entry with its result after running, so the UI's
                     # "Show raw tool calls" toggle can display the full request→result.
@@ -201,7 +201,7 @@ class ChatController:
                             break
                         result = await self.execute(cmd, ai=True)
                         self._add(result)
-                        # Phase 14 Part 8: attach the result to the tool_call entry
+                        # attach the result to the tool_call entry
                         # so the UI can show the full request→result cycle.
                         if assistant_msg and idx < len(assistant_msg.tool_calls):
                             assistant_msg.tool_calls[idx]["result_text"] = result.text
@@ -306,7 +306,7 @@ class ChatController:
         self.persist()
         return m.text
 
-    # ---- Phase 13.6: native tool-calling reply ----
+    # ---- native tool-calling reply ----
     async def _reply_with_tools(self) -> tuple[Optional[str], list[ToolCall]]:
         """Stream a reply with native tool-calling. Returns (assistant_text, tool_calls).
 
@@ -371,7 +371,7 @@ class ChatController:
                 self.view.remove(m)
             toast(self.page, "The model returned an empty reply.", error=True)
             return None, []
-        # Phase 14 Part 8: store the structured tool calls on the Msg so the
+        # store the structured tool calls on the Msg so the
         # UI's "Show raw tool calls" toggle can render them. We convert the
         # ToolCall dataclass instances to plain dicts for JSON serialization.
         if calls:
@@ -618,11 +618,11 @@ class ChatView:
                          ft.Markdown(b.content, selectable=True, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB))
         if not parts:
             parts.append(ft.ProgressRing(width=18, height=18, stroke_width=2))
-        # Phase 14 Part 8: if the setting is on and this message used native
+        # if the setting is on and this message used native
         # tool-calling, append a collapsible block with the raw tool-call payloads.
         if m.tool_calls and getattr(self.ctl.s, "ai_show_tool_calls", False):
             parts.append(self._tool_calls_block(m))
-        # Phase 14 Part 11: add a "Branch from here" button to assistant messages
+        # add a "Branch from here" button to assistant messages
         # that have messages after them (i.e. there's something to discard).
         msg_index = self.ctl.msgs.index(m) if m in self.ctl.msgs else -1
         if msg_index >= 0 and self._can_branch(msg_index):
@@ -635,7 +635,7 @@ class ChatView:
             parts.append(hint)
         return ft.Column(parts, spacing=6)
 
-    # ---------------------------------------------------------------- Phase 14 Part 11: branching
+    # ---------------------------------------------------------------- branching
     def _can_branch(self, index: int) -> bool:
         """True if branching at this index makes sense."""
         from services.chat_branch import can_branch
@@ -664,7 +664,7 @@ class ChatView:
                 do_branch, yes_label="Branch")
 
     def _tool_calls_block(self, m: Msg) -> ft.Control:
-        """Phase 14 Part 8: a collapsible block showing the raw tool-call payloads."""
+        """a collapsible block showing the raw tool-call payloads."""
         from services.tool_inspect import format_tool_calls, summary
         formatted = format_tool_calls(m.tool_calls)
         badge = summary(m)

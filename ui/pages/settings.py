@@ -182,7 +182,7 @@ def settings_page(ctx: AppContext) -> ft.Control:
                     on_select=set_interval,
                     options=[ft.DropdownOption(key=k, text=f"{k} s") for k in ("1", "2", "5", "10", "30")]),
         thr_slider("CPU", "thr_cpu"), thr_slider("RAM", "thr_ram"), thr_slider("Disk", "thr_disk"),
-        ft.Switch(label="Use line charts (Phase 14)", value=s.monitor_line_charts, on_change=set_line_charts),
+        ft.Switch(label="Use line charts", value=s.monitor_line_charts, on_change=set_line_charts),
         ft.Text("Real `flet-charts.LineChart` sparklines in the Monitor instead of the bar fallback. "
                 "Falls back automatically when the package isn't installed.",
                 size=12, opacity=0.7),
@@ -203,9 +203,9 @@ def settings_page(ctx: AppContext) -> ft.Control:
                     options=[ft.DropdownOption(key=k, text=v) for k, v in MODES.items()]),
         ft.TextField(label="Agent step limit", value=str(s.ai_step_limit), width=160,
                      keyboard_type=ft.KeyboardType.NUMBER, on_change=set_ai_steps),
-        ft.Switch(label="Native tool-calling (Phase 13)", value=s.ai_native_tools, on_change=set_ai_native_tools),
-        ft.Switch(label="Show raw tool calls (Phase 14)", value=s.ai_show_tool_calls, on_change=set_ai_show_tool_calls),
-        ft.Switch(label="Prefer local model (Phase 15)", value=s.ai_prefer_local, on_change=set_ai_prefer_local),
+        ft.Switch(label="Native tool-calling", value=s.ai_native_tools, on_change=set_ai_native_tools),
+        ft.Switch(label="Show raw tool calls", value=s.ai_show_tool_calls, on_change=set_ai_show_tool_calls),
+        ft.Switch(label="Prefer local model", value=s.ai_prefer_local, on_change=set_ai_prefer_local),
         ft.Text("When on, the assistant prefers a local model (Ollama / LM Studio / vLLM on your "
                 "LAN) over a cloud provider when both are configured. Falls back to cloud when no "
                 "local profile exists.", size=12, opacity=0.7),
@@ -249,7 +249,7 @@ def settings_page(ctx: AppContext) -> ft.Control:
                 "— for that, use the passphrase option above. Biometric unlock isn't available in this build.", size=12, opacity=0.7),
         ft.Switch(label="Safe mode (ask before EVERY change: file edits, renames, cron, keys, signals, deploys, …)",
                   value=s.safe_mode, on_change=set_safe),
-        ft.Divider(), h("Backup & restore (Phase 14)"),
+        ft.Divider(), h("Backup & restore"),
         ft.Text("Export the entire app state — connections, snippets, AI profiles, and settings — "
                 "as one encrypted bundle. Paste the text on a new phone and enter the same passphrase "
                 "to restore everything at once.", size=12, opacity=0.7),
@@ -263,7 +263,7 @@ def settings_page(ctx: AppContext) -> ft.Control:
     ])
 
 
-# ---- Phase 14 Part 10: encrypted export bundles ----
+# ---- encrypted export bundles ----
 
 def _export_bundle(ctx: AppContext) -> None:
     """Collect all app state, encrypt with a user passphrase, show the blob."""

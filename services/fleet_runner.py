@@ -1,4 +1,4 @@
-"""Phase 14 Part 2 — Multi-server fleet actions (C5).
+"""Part 2 — Multi-server fleet actions (C5).
 
 Run a snippet (or a one-off command) across N saved servers in parallel, with
 a bounded `asyncio.Semaphore` so we don't exhaust file descriptors on hosts

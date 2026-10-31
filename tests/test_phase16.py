@@ -1,4 +1,4 @@
-"""Phase 16 tests: WireGuard, K8s, and Reverse-Proxy UI pages."""
+"""WireGuard, K8s, and Reverse-Proxy UI pages."""
 from __future__ import annotations
 import sys, unittest
 from pathlib import Path

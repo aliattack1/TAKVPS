@@ -1,4 +1,4 @@
-"""Phase 14 Part 11 tests: conversation branching."""
+"""conversation branching."""
 from __future__ import annotations
 import sys, unittest
 from pathlib import Path
