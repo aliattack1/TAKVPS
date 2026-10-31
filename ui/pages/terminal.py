@@ -882,10 +882,11 @@ class TerminalView:
         self.input.value = SENTINEL
 
     def _on_input(self, e) -> None:
-        """Phase 15: the sentinel TextField is now hidden (opacity=0) and only
-        used for mobile soft-keyboard input. On desktop, on_keyboard_event
-        handles everything directly. This handler is kept for backward compat
-        (mobile) but avoids unnecessary page.update() calls."""
+        """Phase 15 fix: only process input from the sentinel TextField on mobile.
+        On desktop, on_keyboard_event handles everything — the TextField
+        would double-send characters if we processed it here too."""
+        if not _is_mobile():
+            return     # desktop: keyboard events go through on_key, not the TextField
         v = e.control.value or ""
         if v == SENTINEL:
             return
@@ -900,12 +901,10 @@ class TerminalView:
         # need a visual refresh. This reduces input lag significantly.
 
     def _on_submit(self, e) -> None:
+        if not _is_mobile():
+            return     # desktop: Enter handled by on_key
         self.ctl.send_key("enter")
         self._reset_input()
-        # Phase 15: skip refocus + page.update on desktop — the keyboard
-        # handler handles Enter directly. The refocus is only needed for
-        # mobile soft-keyboard input.
-        pass
 
     async def _refocus(self) -> None:
         try:

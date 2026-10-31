@@ -298,6 +298,12 @@ class Shell:
         top = self._topbar()
         main_col = ft.Column([c for c in (top, self.banner, self.body) if c is not None],
                              expand=True, spacing=0)
+        # Constrain the main content area so it doesn't stretch too wide
+        # on large desktop screens (e.g. 2560px monitors). Max 900px for
+        # readability; centered when the window is wider.
+        main_wrapper = ft.Container(
+            content=main_col, expand=True,
+            alignment=ft.Alignment.CENTER)
         if self._wide:
             def rail_pick(e):
                 self._select(int(e.control.selected_index))
@@ -325,7 +331,7 @@ class Shell:
                 content=rail_list,
                 width=90, expand=True,
                 bgcolor=ft.Colors.SURFACE)
-            row: list[ft.Control] = [rail_col, ft.VerticalDivider(width=1), main_col]
+            row: list[ft.Control] = [rail_col, ft.VerticalDivider(width=1), main_wrapper]
             if self.panel == "files" and self.key != "files":
                 panel = FileBrowser(self.ctx, compact=True, on_close=self._close_panel)
                 row += [ft.VerticalDivider(width=1), ft.Container(width=PANEL_WIDTH, content=panel.control)]
