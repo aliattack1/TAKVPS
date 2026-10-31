@@ -60,7 +60,7 @@ jobs:
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_ALIAS: takvps
         run: |
           flet build apk --verbose --yes \
             --android-signing-key-store "$HOME/takvps.keystore" \
