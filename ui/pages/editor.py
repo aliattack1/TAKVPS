@@ -334,6 +334,7 @@ class EditorController:
             ib(ft.Icons.TEXT_DECREASE, "Smaller text", lambda _: self._font(-1)),
             ib(ft.Icons.TEXT_INCREASE, "Larger text", lambda _: self._font(+1)),
             ib(ft.Icons.WRAP_TEXT, "Wrap lines (highlighted view)", lambda _: self._toggle_wrap()),
+            ib(ft.Icons.FORMAT_LIST_NUMBERED, "Toggle line numbers", lambda _: self._toggle_line_numbers()),
         ], scroll=ft.ScrollMode.AUTO, spacing=0)
         self._render_all()
         self._mounted = True
@@ -372,6 +373,13 @@ class EditorController:
             self._render_area()
         self.page.update()
         toast(self.page, "Wrap applies to the highlighted view; the edit box always wraps.")
+
+    def _toggle_line_numbers(self) -> None:
+        """Phase 18: toggle line numbers in the highlighted view."""
+        self.show_line_numbers = not getattr(self, "show_line_numbers", True)
+        if self.view_mode == "view":
+            self._render_area()
+        self.page.update()
 
     # ---- rendering ----
     def _render_all(self) -> None:
@@ -421,16 +429,22 @@ class EditorController:
             return
         lines = E.tokenize_lines(t.text, t.lang)
         rows: list[ft.Control] = []
+        show_ln = getattr(self, "show_line_numbers", True)
         w = len(str(len(lines))) * (s.editor_font_size * 0.65) + 12
         for n, spans in enumerate(lines[:MAX_VIEW_LINES], 1):
-            rows.append(ft.Row([
-                ft.Text(str(n), width=w, text_align=ft.TextAlign.END, opacity=0.4,
-                        font_family="monospace", size=s.editor_font_size),
-                ft.Text(spans=[ft.TextSpan(c or " ", ft.TextStyle(color=_KIND_COLOR.get(k)))
+            if show_ln:
+                rows.append(ft.Row([
+                    ft.Text(str(n), width=w, text_align=ft.TextAlign.END, opacity=0.4,
+                            font_family="monospace", size=s.editor_font_size),
+                    ft.Text(spans=[ft.TextSpan(c or " ", ft.TextStyle(color=_KIND_COLOR.get(k)))
+                                   for c, k in spans] or [ft.TextSpan(" ")],
+                            font_family="monospace", size=s.editor_font_size, no_wrap=not s.editor_wrap,
+                            expand=True)]))
+            else:
+                rows.append(ft.Text(spans=[ft.TextSpan(c or " ", ft.TextStyle(color=_KIND_COLOR.get(k)))
                                for c, k in spans] or [ft.TextSpan(" ")],
                         font_family="monospace", size=s.editor_font_size, no_wrap=not s.editor_wrap,
-                        expand=s.editor_wrap, selectable=True)],
-                vertical_alignment=ft.CrossAxisAlignment.START, spacing=8))
+                        expand=s.editor_wrap, selectable=True))
         if len(lines) > MAX_VIEW_LINES:
             rows.append(ft.Text(f"Showing first {MAX_VIEW_LINES} of {len(lines)} lines.", size=11, opacity=0.6))
         self.area.content = ft.ListView(rows, spacing=0, expand=True)

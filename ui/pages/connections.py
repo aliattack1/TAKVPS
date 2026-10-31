@@ -78,11 +78,38 @@ def connections_page(ctx: AppContext) -> ft.Control:
             ft.PopupMenuItem(content=ft.Text("Export connections"), icon=ft.Icons.DOWNLOAD,
                              on_click=lambda _: page.run_task(do_export, ctx))]),
         ft.FilledButton("Add", icon=ft.Icons.ADD, on_click=lambda _: open_editor(ctx, None))], scroll=ft.ScrollMode.AUTO)
+
+    # Phase 17: quick-connect recent servers bar.
+    recent = [p for p in profiles if p.last_connected > 0]
+    recent.sort(key=lambda p: p.last_connected, reverse=True)
+    recent_bar = ft.Container(visible=False, padding=ft.Padding.symmetric(horizontal=theme.SPACE, vertical=2),
+                              bgcolor=ft.Colors.TERTIARY_CONTAINER)
+    if recent:
+        chips: list[ft.Control] = [ft.Icon(ft.Icons.HISTORY, size=14, opacity=0.7)]
+        for p in recent[:8]:
+            chips.append(ft.Container(
+                ink=True, on_click=lambda _, p=p: page.run_task(_quick_connect, ctx, p),
+                padding=ft.Padding.symmetric(horizontal=8, vertical=3),
+                border_radius=14, bgcolor=ft.Colors.PRIMARY_CONTAINER,
+                content=ft.Row([
+                    ft.Icon(ft.Icons.CIRCLE, size=8,
+                            color=ft.Colors.GREEN if is_active(p) else ft.Colors.OUTLINE),
+                    ft.Text(p.name, size=11, no_wrap=True),
+                ], spacing=4)))
+        recent_bar.visible = True
+        recent_bar.content = ft.Row(chips, spacing=6, scroll=ft.ScrollMode.AUTO)
+
     body: ft.Control = (ft.ListView([tile(p) for p in profiles], spacing=theme.SPACE, expand=True)
                         if profiles else empty_state(ft.Icons.DNS, "No servers yet",
                                                      "Tap Add to save your first server."))
     return ft.Container(padding=theme.SPACE, expand=True,
-                        content=ft.Column([top, body], expand=True, spacing=theme.SPACE))
+                        content=ft.Column([top, recent_bar, body], expand=True, spacing=theme.SPACE))
+
+
+async def _quick_connect(ctx: AppContext, p: ConnectionProfile) -> None:
+    """Phase 17: one-tap connect from the recent-servers bar."""
+    if await ctx.connect(p):
+        ctx.navigate("overview")
 
 
 # ---------------------------------------------------------------- editor

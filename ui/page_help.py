@@ -62,6 +62,12 @@ PAGE_HELP = {
     "Favorites per server.",
     "envedit": ".env editor: parses/edits only the lines you touch. Masks secret-looking keys. "
     "Never logs or sends values. Optional service/container restart after saving.",
+    "wireguard": "WireGuard VPN manager: view interface status (running/stopped), start/stop "
+    "with wg-quick, view peers and their allowed IPs. Config read from /etc/wireguard/wg0.conf.",
+    "k8s": "Kubernetes manager: list pods, deployments, services. View pod logs, exec into a pod. "
+    "Uses the server's own kubectl — nothing installed by the app.",
+    "proxy": "Reverse-proxy manager: detects Caddy or Traefik. Shows status (running/stopped). "
+    "Caddy: generate config templates (static site, reverse proxy, PHP-FPM) with copy button.",
     "tools": "Tools hub: one tap to any manager page.",
     "settings": "Settings: theme, monitoring, files, AI assistant, terminal, editor, security, "
     "backup & restore, fleet concurrency, per-server AI prompts.",

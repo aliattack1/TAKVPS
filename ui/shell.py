@@ -46,12 +46,17 @@ from .pages.terminal import TerminalController
 from .pages.tools import tools_page
 from .pages.tunnels import tunnels_page
 from .pages.users import users_page
+from .pages.wireguard import wireguard_page
+from .pages.k8s import k8s_page
+from .pages.proxy import proxy_page
 from .theme import PHONE_MAX_WIDTH, SPACE
 
 LIVE_KEYS = ("servers", "overview", "files", "snippets", "services", "cron", "packages", "docker", "nginx", "firewall", "processes", "network", "users", "activity", "fleet", "backups", "tunnels", "diskusage", "health", "databases")   # rebuilt on connection events
-BOTTOM_SLOTS = 4                                 # phone bottom bar: 4 pages + "More" (Phase 13: was 3, now includes Tools)
+BOTTOM_SLOTS = 4
 PANEL_WIDTH = 400
 FAB_KEYS = ("overview", "monitor", "servers", "tools", "settings")
+# Phase 18: pages that show a badge count (key → count function name on ctx)
+BADGE_KEYS = {"alerts": "_alert_count", "activity": "_activity_count"}
 
 
 @dataclass
@@ -109,6 +114,9 @@ class Shell:
             "databases": Dest("databases", "Databases", I.STORAGE, lambda: databases_page(c)),
             "tunnels": Dest("tunnels", "SSH tunnels", I.SWAP_HORIZ, lambda: tunnels_page(c)),
             "envedit": Dest("envedit", ".env editor", I.KEY, lambda: envedit_page(c)),
+            "wireguard": Dest("wireguard", "WireGuard", I.VPN_LOCK, lambda: wireguard_page(c)),
+            "k8s": Dest("k8s", "Kubernetes", I.CLOUD, lambda: k8s_page(c)),
+            "proxy": Dest("proxy", "Reverse Proxy", I.LAN, lambda: proxy_page(c)),
             "tools": Dest("tools", "Tools", I.APPS, lambda: tools_page(c)),
             "settings": Dest("settings", "Settings", I.SETTINGS, lambda: settings_page(c)),
         }
@@ -128,7 +136,7 @@ class Shell:
             saved.remove("tools")
             saved.insert(BOTTOM_SLOTS - 1, "tools")
         order = [k for k in saved if k in reg]
-        order += [k for k in ("tools", "snippets", "services", "cron", "packages", "docker", "nginx", "logs", "firewall", "processes", "network", "users", "quick", "activity", "fleet", "backups", "alerts", "health", "diskusage", "databases", "tunnels", "envedit", "servers", "settings") if k not in order]
+        order += [k for k in ("tools", "snippets", "services", "cron", "packages", "docker", "nginx", "logs", "firewall", "processes", "network", "users", "quick", "activity", "fleet", "backups", "alerts", "health", "diskusage", "databases", "tunnels", "envedit", "wireguard", "k8s", "proxy", "servers", "settings") if k not in order]
         order += [k for k in reg if k not in order]
         # Persist the migrated nav_order back so we don't redo this every render.
         if list(c.store.data.nav_order) != saved:

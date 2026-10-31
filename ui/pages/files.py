@@ -46,6 +46,13 @@ class FileBrowser:
         self._picker = None
 
         self.progress = ft.ProgressBar(visible=False)
+        # Transfer status bar: shows active uploads/downloads with progress.
+        self.transfer_bar = ft.Container(visible=False, padding=ft.Padding.symmetric(horizontal=theme.SPACE, vertical=4),
+                                         bgcolor=ft.Colors.SECONDARY_CONTAINER)
+        self.transfer_progress = ft.ProgressBar(visible=False, height=6)
+        self.transfer_label = ft.Text("", size=11, no_wrap=True, opacity=0.8)
+        self.bookmark_bar = ft.Container(visible=False, padding=ft.Padding.symmetric(horizontal=theme.SPACE, vertical=2),
+                                         bgcolor=ft.Colors.TERTIARY_CONTAINER)
         self.crumbs = ft.Row(scroll=ft.ScrollMode.AUTO, auto_scroll=True, spacing=0)
         self.search = ft.TextField(hint_text="Filter this folder", dense=True, visible=False,
                                    prefix_icon=ft.Icons.SEARCH, on_change=self._on_query)
@@ -58,12 +65,25 @@ class FileBrowser:
         self.control = ft.Column(
             [self.progress, ft.Container(self.crumbs, padding=ft.Padding.symmetric(horizontal=4)),
              self.toolbar, ft.Container(self.search, padding=ft.Padding.symmetric(horizontal=theme.SPACE)),
+             self.transfer_bar, self.transfer_progress, self.transfer_label,
+             self.bookmark_bar,
              self.paste_bar, self.list, self.sel_bar], expand=True, spacing=0)
         self._render()
         if ctx.ssh.status.value == "connected":
             self.page.run_task(self.load)
         # Phase 13.4: hook the OS-level drop event (desktop only; no-op on mobile).
         self.attach_drop_zone()
+        # Phase 15: register a transfer-tick callback so the transfer progress bar updates.
+        ctx._files_transfer_tick = self._on_transfer_tick
+
+    def _on_transfer_tick(self) -> None:
+        """Called by ctx._transfers_changed when the transfer queue changes.
+        Updates the progress bar and auto-refreshes when uploads finish."""
+        self._update_transfer_status()
+        try:
+            self.page.update()
+        except Exception:  # noqa: BLE001
+            pass
 
     # ------------------------------------------------------------ small helpers
     @property
@@ -78,10 +98,39 @@ class FileBrowser:
 
     def _refresh_ui(self) -> None:
         self._render()
+        self._update_transfer_status()
         self.page.update()
 
     def _err(self, e: Exception) -> None:
         toast(self.page, getattr(e, "message", None) or str(e), error=True)
+
+    def _update_transfer_status(self) -> None:
+        """Show a progress bar for active transfers and auto-refresh after they finish."""
+        active = [t for t in self.ctx.transfers.items if t.active]
+        if active:
+            # Show progress for the current transfer.
+            t = active[0]
+            self.transfer_bar.visible = True
+            self.transfer_progress.visible = True
+            self.transfer_label.visible = True
+            if t.total:
+                self.transfer_progress.value = t.done / t.total
+                pct = int(t.done / t.total * 100)
+                self.transfer_label.value = f"{'↑' if t.kind == 'up' else '↓'} {t.name} · {pct}%"
+            else:
+                self.transfer_progress.value = None    # indeterminate
+                self.transfer_label.value = f"{'↑' if t.kind == 'up' else '↓'} {t.name}…"
+        else:
+            self.transfer_bar.visible = False
+            self.transfer_progress.visible = False
+            self.transfer_label.visible = False
+            # Check if any transfers just finished → auto-refresh the file list.
+            finished = [t for t in self.ctx.transfers.items if not t.active and not getattr(t, "_refreshed", False)]
+            if finished:
+                for t in finished:
+                    t._refreshed = True    # type: ignore[attr-defined]
+                # Auto-refresh the file list to show newly uploaded/downloaded files.
+                self.page.run_task(self.load, self.cwd)
 
     # ------------------------------------------------------------ loading
     async def load(self, path: Optional[str] = None) -> None:
@@ -119,6 +168,7 @@ class FileBrowser:
     def _render(self) -> None:
         s = self.s
         self.progress.visible = self.loading
+        self._render_bookmarks()
         # toolbar
         sort_items = [ft.PopupMenuItem(
             content=ft.Text(label + ("  ✓" if s.files_sort == key else "")),
@@ -138,6 +188,7 @@ class FileBrowser:
                 ft.PopupMenuItem(content=ft.Text("New file"), icon=ft.Icons.NOTE_ADD,
                                  on_click=lambda _: self._go(self.new_file))]),
             self._icon_btn(ft.Icons.UPLOAD, "Upload", lambda _: self._go(self.upload)),
+            self._icon_btn(ft.Icons.STAR, "Bookmark this folder", lambda _: self._toggle_bookmark()),
             self._icon_btn(ft.Icons.DELETE_SWEEP, "Recycle bin", lambda _: self._go(self.open_recycle_bin)),
             self._icon_btn(ft.Icons.SWAP_VERT, "Transfers", lambda _: open_transfers(self.ctx)),
         ]
@@ -201,12 +252,12 @@ class FileBrowser:
                                  on_click=lambda _: self.properties(ents_sel[0]))]) if one else ft.Container()
             self.sel_bar.content = ft.Row([
                 ft.Text(f"{k} selected", expand=True),
-                self._icon_btn(ft.Icons.DOWNLOAD, "Download", lambda _: self.download(ents_sel)),
+                self._icon_btn(ft.Icons.DOWNLOAD, "Download (files & folders)", lambda _: self.download(ents_sel)),
                 self._icon_btn(ft.Icons.CONTENT_COPY, "Copy", lambda _: self._set_clip(ents_sel, "copy")),
                 self._icon_btn(ft.Icons.CONTENT_CUT, "Move", lambda _: self._set_clip(ents_sel, "move")),
                 self._icon_btn(ft.Icons.DELETE, "Delete", lambda _: self.delete(ents_sel)),
                 more,
-                self._icon_btn(ft.Icons.CLOSE, "Clear selection", lambda _: self._clear_selection())])
+                self._icon_btn(ft.Icons.CLOSE, "Clear selection", lambda _: self._clear_selection())], scroll=ft.ScrollMode.AUTO)
 
     def _tile(self, e: RemoteEntry) -> ft.Control:
         sel = e.path in self.selected
@@ -266,6 +317,39 @@ class FileBrowser:
         self.s.files_hidden = not self.s.files_hidden
         self.ctx.store.save()
         self._refresh_ui()
+
+    # ------------------------------------------------------------ Phase 17: bookmarks
+    def _toggle_bookmark(self) -> None:
+        """Bookmark/unbookmark the current folder."""
+        path = self.cwd
+        bms = list(self.s.file_bookmarks)
+        if path in bms:
+            bms.remove(path)
+            toast(self.page, f"Removed bookmark: {path}")
+        else:
+            bms.append(path)
+            toast(self.page, f"Bookmarked: {path}")
+        self.s.file_bookmarks = bms
+        self.ctx.store.save()
+        self._render_bookmarks()
+        self.page.update()
+
+    def _render_bookmarks(self) -> None:
+        """Render the bookmark bar with starred folders."""
+        bms = list(self.s.file_bookmarks)
+        if not bms or not self._connected():
+            self.bookmark_bar.visible = False
+            return
+        chips: list[ft.Control] = [ft.Icon(ft.Icons.STAR, size=14, opacity=0.7)]
+        for path in bms[:15]:
+            name = path.rsplit("/", 1)[-1] or path
+            chips.append(ft.Container(
+                ink=True, on_click=lambda _, p=path: self._go(self.load, p),
+                padding=ft.Padding.symmetric(horizontal=6, vertical=2),
+                border_radius=12, bgcolor=ft.Colors.PRIMARY_CONTAINER,
+                content=ft.Text(name, size=10, no_wrap=True)))
+        self.bookmark_bar.visible = True
+        self.bookmark_bar.content = ft.Row(chips, spacing=4, scroll=ft.ScrollMode.AUTO)
 
     # ------------------------------------------------------------ selection / clipboard
     def _click(self, e: RemoteEntry) -> None:

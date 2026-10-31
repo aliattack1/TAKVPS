@@ -14,6 +14,9 @@ TOOLS = [
     ("packages", "Packages", I.SYSTEM_UPDATE, "Install, remove, update"),
     ("docker", "Docker", I.VIEW_IN_AR, "Containers, images, compose"),
     ("nginx", "Nginx", I.LANGUAGE, "Sites, config test, HTTPS"),
+    ("proxy", "Reverse Proxy", I.LAN, "Caddy / Traefik manager"),
+    ("wireguard", "WireGuard", I.VPN_LOCK, "VPN interface & peers"),
+    ("k8s", "Kubernetes", I.CLOUD, "Pods, deployments, services"),
     ("health", "Health score", I.HEALTH_AND_SAFETY, "0-100 with fixes"),
     ("diskusage", "Disk usage", I.PIE_CHART, "What uses space + cleanup"),
     ("databases", "Databases", I.STORAGE, "MySQL, Postgres, SQLite, Redis"),
@@ -43,7 +46,17 @@ def tools_page(ctx: AppContext) -> ft.Control:
         content=ft.Column([ft.Icon(icon, size=28, color=ft.Colors.PRIMARY),
                            ft.Text(label, weight=ft.FontWeight.W_600),
                            ft.Text(desc, size=11, opacity=0.7)], spacing=4)) for key, label, icon, desc in TOOLS]
+    # Phase 18: config diff tool (opens a dialog, not a page)
+    def open_diff(_):
+        from .config_diff import open_diff_dialog
+        ctx.page.run_task(open_diff_dialog, ctx)
+    diff_tile = ft.Container(
+        width=160, border_radius=theme.RADIUS, padding=theme.SPACE, ink=True,
+        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH, on_click=open_diff,
+        content=ft.Column([ft.Icon(ft.Icons.COMPARE_ARROWS, size=28, color=ft.Colors.PRIMARY),
+                           ft.Text("Compare files", weight=ft.FontWeight.W_600),
+                           ft.Text("Diff a file between two servers", size=11, opacity=0.7)], spacing=4))
     return ft.ListView(padding=theme.SPACE, spacing=theme.SPACE, controls=[
         ft.Text("Tools", size=22, weight=ft.FontWeight.W_600),
-        ft.Row(tiles, wrap=True, spacing=theme.SPACE, run_spacing=theme.SPACE),
+        ft.Row(tiles + [diff_tile], wrap=True, spacing=theme.SPACE, run_spacing=theme.SPACE),
         ft.Text("More tools arrive in later phases.", size=12, opacity=0.6)])

@@ -57,6 +57,7 @@ class Settings:
     files_sort: str = "name"
     files_reverse: bool = False
     files_hidden: bool = False
+    file_bookmarks: list[str] = field(default_factory=list)   # Phase 17: starred folder paths
     download_dir: str = ""
     thr_cpu: list[int] = field(default_factory=lambda: [70, 90])
     thr_ram: list[int] = field(default_factory=lambda: [80, 92])

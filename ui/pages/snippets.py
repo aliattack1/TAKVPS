@@ -129,8 +129,41 @@ def snippets_page(ctx: AppContext) -> ft.Control:
             ft.PopupMenuItem(content=ft.Text("Run history"), icon=ft.Icons.HISTORY,
                              on_click=lambda _: open_history(ctx, ""))]),
         ft.FilledButton("Add", icon=ft.Icons.ADD, on_click=lambda _: open_snippet_editor(ctx, None))], scroll=ft.ScrollMode.AUTO)
+
+    # Phase 18: search/filter bar for snippets.
+    search = ft.TextField(hint_text="Filter commands by name or text…", dense=True,
+                          prefix_icon=ft.Icons.SEARCH, border_radius=8)
+    filtered_items = list(items)     # will be re-filtered on search
+
+    def do_filter(_=None) -> None:
+        q = (search.value or "").lower()
+        if not q:
+            lst.controls = filtered_items
+        else:
+            def matches(s):
+                return q in s.name.lower() or q in s.command.lower()
+            filtered_snippets = [s for s in sns if matches(s)]
+            filtered_deploys = [d for d in dps if q in d.name.lower()]
+            new_items: list[ft.Control] = []
+            # Regroup filtered snippets
+            fgroups: dict[str, list] = {}
+            for s in filtered_snippets:
+                fgroups.setdefault(s.group or "", []).append(s)
+            for g in sorted(fgroups.keys(), key=lambda x: (x == "", x.lower())):
+                new_items.append(ft.Text(g or "Ungrouped", size=13, weight=ft.FontWeight.W_600, opacity=0.7))
+                new_items += [snippet_tile(s) for s in fgroups[g]]
+            if filtered_deploys:
+                new_items.append(ft.Text("Git deploy recipes", size=13, weight=ft.FontWeight.W_600, opacity=0.7))
+                new_items += [deploy_tile(d) for d in filtered_deploys]
+            if not new_items:
+                new_items = [ft.Container(padding=24, content=ft.Text(f"No commands matching '{search.value}'.", opacity=0.7))]
+            lst.controls = new_items
+        page.update()
+
+    search.on_change = do_filter
+    lst = ft.ListView(items, spacing=theme.SPACE, expand=True)
     return ft.Container(padding=theme.SPACE, expand=True, content=ft.Column(
-        [top, ft.ListView(items, spacing=theme.SPACE, expand=True)], expand=True, spacing=theme.SPACE))
+        [top, search, lst], expand=True, spacing=theme.SPACE))
 
 
 # ====================================================================== running

@@ -75,6 +75,9 @@ class AppContext:
         self.fleet: dict = {}                                  # last multi-server results
         self.palette_pages: Callable[[], list[tuple[str, str]]] = lambda: []
         self.system_notify: Callable[[str, str], bool] = lambda title, body: False   # hook: OS notifications
+        # Phase 18: badge counts for nav icons.
+        self._alert_count: int = 0
+        self._activity_count: int = 0
         self.alerts = AlertRunner(self.ssh, lambda: float(store.data.alert_interval), self._thresholds,
                                   lambda: list(store.data.alert_services), self._on_alert, page.run_task)
         self.ai_profiles = AIProfileStore(data_dir() / "ai_profiles.json")
@@ -114,6 +117,15 @@ class AppContext:
             pass
         if self.transfers_view:
             self.transfers_view.refresh()
+        # Phase 15: tick the file manager's transfer status bar.
+        # The file manager lives in the FilesState; we find it via page_hooks
+        # or just call a ctx-stored callback.
+        cb = getattr(self, "_files_transfer_tick", None)
+        if cb:
+            try:
+                cb()
+            except Exception:  # noqa: BLE001
+                pass
 
     def _monitor_update(self, m) -> None:
         if self.monitor_view:
@@ -130,6 +142,7 @@ class AppContext:
     def _on_alert(self, a: Alert) -> None:
         self.alert_history.insert(0, a)
         del self.alert_history[50:]
+        self._alert_count += 1     # Phase 18: increment badge
         self.notify(a.title, a.detail)
 
     def notify(self, title: str, body: str) -> None:
@@ -305,6 +318,7 @@ class AppContext:
         try:
             self.activity.add(a.id if a else "", a.name if a else "", redact(cmd)[0], exit_code, source,
                               classify(cmd).level)
+            self._activity_count += 1     # Phase 18: increment badge
         except OSError:
             pass
 

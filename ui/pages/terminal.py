@@ -67,6 +67,11 @@ class TerminalController:
         self.tmux_installed: Optional[bool] = None    # None = unknown (probed lazily)
         self.tmux_sessions: list[tmux_svc.TmuxSession] = []
         self.last_session_name: str = ""               # the name we last used, for "Reattach"
+        # Phase 17: in-app command history (separate from shell's own history).
+        # Captures lines the user types (Enter-terminated), so ↑/↓ can recall
+        # them without depending on the remote shell's history file.
+        self.cmd_history: list[str] = []
+        self.cmd_history_idx: int = -1     # -1 = not browsing history
 
     # ---------------------------------------------------------------- sessions
     @property
@@ -220,6 +225,83 @@ class TerminalController:
             self.view.refresh_ctrl()
             self.page.update()
 
+    # ---------------------------------------------------------------- Phase 17: command history
+    def _capture_cmd_line(self) -> None:
+        """Capture the last line of terminal output as a typed command."""
+        s = self.session
+        if s is None:
+            return
+        # Read the current screen text and get the last non-empty line.
+        text = s.screen.text()
+        lines = text.splitlines()
+        # Walk backwards to find the last non-empty line (the command that was just run).
+        for ln in reversed(lines):
+            ln = ln.strip()
+            if ln:
+                # Don't capture prompts (ending in $, #, >) or empty lines.
+                # Don't capture the same command twice in a row.
+                if ln != "$" and not ln.endswith("#") and ln != ">" and \
+                   (not self.cmd_history or ln != self.cmd_history[-1]):
+                    self.cmd_history.append(ln)
+                break
+        # Cap history at 100 entries.
+        if len(self.cmd_history) > 100:
+            self.cmd_history = self.cmd_history[-100:]
+
+    def _history_prev(self) -> None:
+        """Ctrl+↑: recall the previous command from local history."""
+        if not self.cmd_history:
+            return
+        if self.cmd_history_idx == -1:
+            self.cmd_history_idx = len(self.cmd_history) - 1
+        elif self.cmd_history_idx > 0:
+            self.cmd_history_idx -= 1
+        else:
+            return     # already at the oldest
+        cmd = self.cmd_history[self.cmd_history_idx]
+        # Clear the current line (Ctrl+U) then type the recalled command.
+        self.send("\x15")     # Ctrl+U = clear line
+        self.send(cmd)
+
+    def _history_next(self) -> None:
+        """Ctrl+↓: recall the next command from local history."""
+        if not self.cmd_history or self.cmd_history_idx == -1:
+            return
+        if self.cmd_history_idx < len(self.cmd_history) - 1:
+            self.cmd_history_idx += 1
+            cmd = self.cmd_history[self.cmd_history_idx]
+        else:
+            # Past the end → clear the line.
+            self.cmd_history_idx = -1
+            self.send("\x15")     # Ctrl+U = clear line
+            return
+        self.send("\x15")     # Ctrl+U = clear line
+        self.send(cmd)
+
+    def show_history_dialog(self) -> None:
+        """Phase 17: show a dialog listing the command history for easy recall."""
+        if not self.cmd_history:
+            toast(self.page, "No command history yet.")
+            return
+        col = ft.Column(spacing=2, scroll=ft.ScrollMode.AUTO, expand=True)
+        for i, cmd in enumerate(reversed(self.cmd_history)):
+            idx = len(self.cmd_history) - i
+            def recall(_, c=cmd):
+                self.page.pop_dialog()
+                self.send("\x15")     # clear line
+                self.send(c)
+            col.controls.append(ft.Container(
+                ink=True, on_click=recall, padding=ft.Padding.symmetric(horizontal=8, vertical=4),
+                content=ft.Row([
+                    ft.Text(f"{idx}", size=10, opacity=0.5, width=30),
+                    ft.Text(cmd, size=11, font_family="monospace", expand=True, no_wrap=True),
+                ])))
+        self.page.show_dialog(ft.AlertDialog(
+            title=ft.Text(f"Command history ({len(self.cmd_history)})"), modal=True,
+            content=ft.Container(width=400, height=350, content=col),
+            actions=[ft.TextButton("Clear history", on_click=lambda _: (setattr(self, "cmd_history", []), setattr(self, "cmd_history_idx", -1), self.page.pop_dialog())),
+                     ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
+
     def on_key(self, e) -> None:
         """Phase 15 terminal overhaul: capture ALL keyboard events directly.
 
@@ -279,9 +361,24 @@ class TerminalController:
         # ---- Enter / Backspace ----
         if key == "Enter":
             self.send_key("enter")
+            # Phase 17: capture the current input line for in-app history.
+            # We read the last line of the terminal screen (the input line).
+            self._capture_cmd_line()
+            self.cmd_history_idx = -1     # reset browsing
             return
         if key == "Backspace":
             self.send_key("backspace")
+            return
+
+        # ---- Phase 17: Ctrl+↑ / Ctrl+↓ for in-app command history ----
+        # These are separate from shell's own ↑/↓ (which use plain ArrowUp/Down).
+        # When the user does Ctrl+↑, we recall the previous command from our
+        # local history and type it into the terminal (as if pasted).
+        if ctrl and key == "ArrowUp":
+            self._history_prev()
+            return
+        if ctrl and key == "ArrowDown":
+            self._history_next()
             return
 
         # ---- Ctrl+letter (and Ctrl+@, Ctrl+[, etc.) ----
@@ -345,6 +442,23 @@ class TerminalController:
             toast(self.page, "Terminal output copied.")
         except Exception:  # noqa: BLE001
             toast(self.page, "Couldn't access the clipboard here.", error=True)
+
+    async def export_output(self) -> None:
+        """Phase 17: save terminal output to a local file via the file picker."""
+        if not self.session:
+            return
+        text = self.session.screen.text()
+        try:
+            from storage.settings import resolve_download_dir
+            dest_dir = resolve_download_dir(self.s)
+            from services.transfers import unique_local_path
+            import time as _t
+            fname = f"terminal_{_t.strftime('%Y%m%d_%H%M%S')}.txt"
+            dest = unique_local_path(dest_dir, fname)
+            dest.write_text(text, encoding="utf-8")
+            toast(self.page, f"Saved to {dest}")
+        except Exception as e:  # noqa: BLE001
+            toast(self.page, f"Couldn't save: {e}", error=True)
 
     async def copy_text(self, text: str) -> None:
         try:
@@ -679,7 +793,9 @@ class TerminalView:
                 ft.IconButton(ft.Icons.CONTENT_PASTE, tooltip="Paste", width=44, height=44,
                               on_click=lambda _: self.page.run_task(ctl.paste)),
                 ft.IconButton(ft.Icons.COPY, tooltip="Copy output", width=44, height=44,
-                              on_click=lambda _: self.page.run_task(ctl.copy_output)),
+                              on_click=lambda _: self._open_copy_dialog()),
+                ft.IconButton(ft.Icons.HISTORY, tooltip="Command history", width=44, height=44,
+                              on_click=lambda _: ctl.show_history_dialog()),
                 ft.IconButton(ft.Icons.SMART_TOY, tooltip="Ask AI about this output", width=44, height=44,
                               on_click=lambda _: ctl.ask_ai_about_output()),
                 ft.IconButton(ft.Icons.HUB, tooltip="Persistent sessions (tmux)", width=44, height=44,
@@ -832,6 +948,93 @@ class TerminalView:
         self._seen = scr.scrolled_total
         self._layout()
         self.render(update=False)
+
+    def _open_copy_dialog(self) -> None:
+        """Copy terminal output: either all of it, or a selected line range."""
+        s = self.ctl.session
+        if s is None:
+            return
+        all_text = s.screen.text()
+        lines = all_text.splitlines()
+        total = len(lines)
+
+        col = ft.Column(spacing=8, scroll=ft.ScrollMode.AUTO, expand=True, tight=True)
+        col.controls.append(ft.Text(f"{total} line(s) in the terminal output.", size=12, opacity=0.7))
+
+        # Option 1: Copy all
+        async def copy_all(_=None) -> None:
+            self.page.pop_dialog()
+            await self.ctl.copy_text(all_text)
+
+        col.controls.append(ft.FilledButton("Copy all output", icon=ft.Icons.CONTENT_COPY,
+                                             on_click=lambda _: self.page.run_task(copy_all)))
+        # Phase 17: export to file
+        async def export_file(_=None) -> None:
+            self.page.pop_dialog()
+            await self.ctl.export_output()
+        col.controls.append(ft.FilledTonalButton("Save to file", icon=ft.Icons.SAVE,
+                                                  on_click=lambda _: self.page.run_task(export_file)))
+
+        # Option 2: Copy a range (from line X to line Y)
+        if total > 1:
+            col.controls.append(ft.Divider(height=1))
+            col.controls.append(ft.Text("Or copy a range:", size=12, weight=ft.FontWeight.W_600))
+            from_field = ft.TextField(label="From line", value="1", width=100,
+                                       keyboard_type=ft.KeyboardType.NUMBER, dense=True)
+            to_field = ft.TextField(label="To line", value=str(total), width=100,
+                                     keyboard_type=ft.KeyboardType.NUMBER, dense=True)
+            preview = ft.Text("", size=11, font_family="monospace", no_wrap=False, opacity=0.7)
+
+            def update_preview(_=None) -> None:
+                try:
+                    lo = max(1, int(from_field.value or "1"))
+                    hi = min(total, int(to_field.value or str(total)))
+                    if lo > hi:
+                        lo, hi = hi, lo
+                    snippet = "\n".join(lines[lo-1:hi])
+                    preview.value = snippet[:300] + ("…" if len(snippet) > 300 else "")
+                except (ValueError, TypeError):
+                    preview.value = "Enter valid line numbers."
+                self.page.update()
+
+            from_field.on_change = update_preview
+            to_field.on_change = update_preview
+
+            async def copy_range(_=None) -> None:
+                try:
+                    lo = max(1, int(from_field.value or "1"))
+                    hi = min(total, int(to_field.value or str(total)))
+                    if lo > hi:
+                        lo, hi = hi, lo
+                    snippet = "\n".join(lines[lo-1:hi])
+                except (ValueError, TypeError):
+                    toast(self.page, "Enter valid line numbers.", error=True)
+                    return
+                self.page.pop_dialog()
+                await self.ctl.copy_text(snippet)
+
+            col.controls.append(ft.Row([from_field, ft.Text("–"), to_field], spacing=8))
+            col.controls.append(preview)
+            col.controls.append(ft.FilledTonalButton("Copy range", icon=ft.Icons.CONTENT_COPY,
+                                                      on_click=lambda _: self.page.run_task(copy_range)))
+
+        # Option 3: Show full output in a selectable text (for manual selection)
+        col.controls.append(ft.Divider(height=1))
+        col.controls.append(ft.Text("Or select manually below:", size=12, weight=ft.FontWeight.W_600))
+        selectable = ft.Text(all_text[:5000] + ("…" if len(all_text) > 5000 else ""),
+                               font_family="monospace", size=10, selectable=True, no_wrap=False)
+        col.controls.append(ft.Container(
+            content=selectable, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+            padding=8, border_radius=8, height=200))
+
+        dlg = ft.AlertDialog(
+            title=ft.Text("Copy terminal output"), modal=True,
+            content=ft.Container(width=400, height=450, content=col),
+            actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())])
+        self.page.show_dialog(dlg)
+        # Initial preview update
+        if total > 1:
+            update_preview()
 
     def _scroll_text(self, row: list) -> ft.Control:
         text = ft.Text(spans=[_span(t, st) for t, st in Screen.spans_of_row(row)],
