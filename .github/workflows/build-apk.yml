@@ -1,0 +1,82 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+# Cancel any in-flight run when a new commit lands on the same ref
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Flet CLI
+        run: |
+          python -m pip install --upgrade pip
+          pip install flet flet-cli
+
+      - name: Pre-fetch serious_python (will fail at pip step — expected)
+        run: flet build apk --verbose --yes || true
+
+      - name: Patch serious_python mobilePyPiUrl (add trailing slash)
+        run: |
+          set -e
+          file=$(find "$HOME/.pub-cache" -path "*serious_python-*/bin/package_command.dart" | head -1)
+          if [ -z "$file" ]; then
+            echo "ERROR: serious_python source not found in pub cache"
+            exit 1
+          fi
+          echo "Patching $file"
+          sed -i 's|const mobilePyPiUrl = "https://pypi.flet.dev";|const mobilePyPiUrl = "https://pypi.flet.dev/";|' "$file"
+          echo "After patch:"
+          grep -n mobilePyPiUrl "$file"
+
+      - name: Build APK (with patched serious_python)
+        run: flet build apk --verbose --yes
+
+      - name: Locate APK
+        working-directory: .
+        run: |
+          echo "=== APK files ==="
+          find build -name "*.apk" -path "*release*" -exec ls -lh {} \;
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: takvps-release-apk
+          path: build/flutter/build/app/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Debug — show build tree (on failure)
+        if: failure()
+        working-directory: .
+        run: |
+          echo "=== build/ dirs ==="
+          find build -maxdepth 6 -type d 2>/dev/null | head -40 || true
+          echo "=== all .apk files ==="
+          find . -name "*.apk" 2>/dev/null || true
