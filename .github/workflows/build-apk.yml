@@ -54,38 +54,30 @@ jobs:
             exit 1
           fi
           sed -i 's|const mobilePyPiUrl = "https://pypi.flet.dev";|const mobilePyPiUrl = "https://pypi.flet.dev/";|' "$file"
+          grep -n mobilePyPiUrl "$file"
 
-      - name: Build APK (unsigned)
-        run: flet build apk --verbose --yes
-
-      - name: Sign APK with release key
+      - name: Build signed APK
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
-          # Find the built APK
+          flet build apk --verbose --yes \
+            --android-signing-key-store "$HOME/takvps.keystore" \
+            --android-signing-key-store-password "$KEYSTORE_PASSWORD" \
+            --android-signing-key-alias "$KEY_ALIAS" \
+            --android-signing-key-password "$KEY_PASSWORD"
+
+      - name: Verify APK signature
+        run: |
           APK=$(find build -name "*.apk" | head -1)
           if [ -z "$APK" ]; then
-            echo "ERROR: No APK found!"
-            find build -name "*.apk" 2>/dev/null
+            echo "No APK found!"
             exit 1
           fi
-          echo "Found APK: $APK"
-
-          # Get apksigner from build-tools
-          BUILD_TOOLS_DIR=$(ls -d $ANDROID_HOME/build-tools/*/ | sort -V | tail -1)
-          APKSIGNER="${BUILD_TOOLS_DIR}apksigner"
-
-          echo "Signing with release keystore..."
-          "$APKSIGNER" sign \
-            --ks "$HOME/takvps.keystore" \
-            --ks-key-alias takvps \
-            --ks-pass "pass:$KEYSTORE_PASSWORD" \
-            --key-pass "pass:$KEY_PASSWORD" \
-            "$APK"
-
-          echo "Verifying signature..."
-          "$APKSIGNER" verify --print-certs "$APK"
+          echo "APK: $APK"
+          BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/*/ | sort -V | tail -1)
+          "${BUILD_TOOLS}apksigner" verify --print-certs "$APK"
 
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
@@ -100,7 +92,5 @@ jobs:
       - name: Debug — show build tree (on failure)
         if: failure()
         run: |
-          echo "=== build/ dirs ==="
           find build -maxdepth 6 -type d 2>/dev/null | head -40 || true
-          echo "=== all .apk files ==="
           find . -name "*.apk" 2>/dev/null || true
