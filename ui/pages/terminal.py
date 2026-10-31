@@ -298,7 +298,7 @@ class TerminalController:
                 ])))
         self.page.show_dialog(ft.AlertDialog(
             title=ft.Text(f"Command history ({len(self.cmd_history)})"), modal=True,
-            content=ft.Container(width=400, height=350, content=col),
+            content=ft.Container(width=400, height=min(350, (page.height or 600) - 200), content=col),
             actions=[ft.TextButton("Clear history", on_click=lambda _: (setattr(self, "cmd_history", []), setattr(self, "cmd_history_idx", -1), self.page.pop_dialog())),
                      ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
 
@@ -859,7 +859,7 @@ class TerminalView:
                                      "the session keeps running on the server.", size=11, opacity=0.6))
         dlg = ft.AlertDialog(
             title=ft.Text("Persistent sessions (tmux)"), modal=True,
-            content=ft.Container(width=420, height=400, content=col),
+            content=ft.Container(width=420, height=min(400, (page.height or 600) - 200), content=col),
             actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())])
         self.page.show_dialog(dlg)
 
@@ -1029,7 +1029,7 @@ class TerminalView:
 
         dlg = ft.AlertDialog(
             title=ft.Text("Copy terminal output"), modal=True,
-            content=ft.Container(width=400, height=450, content=col),
+            content=ft.Container(width=400, height=min(450, (page.height or 600) - 200), content=col),
             actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())])
         self.page.show_dialog(dlg)
         # Initial preview update

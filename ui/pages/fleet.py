@@ -255,7 +255,7 @@ class FleetView:
                                      "approval; you'll get one prompt covering all of them.", size=11, opacity=0.7))
         dlg = ft.AlertDialog(
             title=ft.Text("Run on fleet"), modal=True,
-            content=ft.Container(width=440, height=420, content=col),
+            content=ft.Container(width=440, height=min(420, (page.height or 600) - 200), content=col),
             actions=[ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog())])
         self.page.show_dialog(dlg)
 
@@ -394,7 +394,7 @@ class FleetView:
             title=ft.Row([ft.Text("Fleet run", expand=True, weight=ft.FontWeight.W_600),
                           ft.Text(f"sudo" if sudo else "", size=11, opacity=0.7)]),
             modal=True,
-            content=ft.Container(width=480, height=420, content=ft.Column([
+            content=ft.Container(width=480, height=min(420, (page.height or 600) - 200), content=ft.Column([
                 ft.Text(f"$ {command[:120]}", font_family="monospace", size=11, opacity=0.7,
                          no_wrap=True, selectable=True),
                 self.fleet_status,

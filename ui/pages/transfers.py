@@ -21,7 +21,7 @@ class TransfersView:
         self.ctx, self.page = ctx, ctx.page
         self._picker = None
         self.col = ft.ListView(spacing=8, expand=True)
-        self.control = ft.Container(width=340, height=420, content=self.col)
+        self.control = ft.Container(width=340, height=min(420, (page.height or 600) - 200), content=self.col)
         self.refresh(update=False)
 
     def refresh(self, update: bool = True) -> None:

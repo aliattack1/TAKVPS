@@ -304,8 +304,14 @@ class Shell:
             rail = ft.NavigationRail(
                 selected_index=self.index, label_type=ft.NavigationRailLabelType.ALL,
                 destinations=[ft.NavigationRailDestination(icon=d.icon, label=d.label) for d in self.dests],
-                on_change=rail_pick)
-            row: list[ft.Control] = [rail, ft.VerticalDivider(width=1), main_col]
+                on_change=rail_pick,
+                extended=False)     # compact icons so they fit more destinations
+            # Wrap the rail in a scrollable container in case there are too many
+            # destinations to fit vertically on a short window.
+            rail_container = ft.Container(
+                content=ft.Column([rail], scroll=ft.ScrollMode.AUTO, expand=True),
+                height=(self.page.height or 600) - 20, expand=True)
+            row: list[ft.Control] = [rail_container, ft.VerticalDivider(width=1), main_col]
             if self.panel == "files" and self.key != "files":
                 panel = FileBrowser(self.ctx, compact=True, on_close=self._close_panel)
                 row += [ft.VerticalDivider(width=1), ft.Container(width=PANEL_WIDTH, content=panel.control)]

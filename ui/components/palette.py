@@ -49,7 +49,10 @@ async def _go(ctx, it: Item) -> None:
 def open_palette(ctx) -> None:
     page = ctx.page
     items = build_items(ctx)
-    results = ft.ListView(spacing=0, height=340)
+    # Phase 18 fix: use expand=True instead of a fixed height so the list
+    # shrinks when the keyboard opens on Android (the dialog's height is
+    # constrained by the available viewport).
+    results = ft.ListView(spacing=0, expand=True)
     field = ft.TextField(hint_text="Search pages, servers, commands, services, files…", autofocus=True,
                          prefix_icon=ft.Icons.SEARCH, dense=True)
 
@@ -69,8 +72,14 @@ def open_palette(ctx) -> None:
     field.on_change = draw
     field.on_submit = lambda _: (pick(search(items, field.value or "", 1)[0]) if search(items, field.value or "", 1) else None)
     results.controls = []
+    # The dialog content has a max height that respects the viewport, so the
+    # expand=True ListView will shrink to fit even when the keyboard is open.
+    dialog_content = ft.Container(
+        width=360,
+        height=min(400, (page.height or 600) - 250),  # leave room for dialog chrome + keyboard
+        content=ft.Column([field, results], tight=True, expand=True))
     page.show_dialog(ft.AlertDialog(
-        title=ft.Text("Search everything"), content=ft.Container(width=360, content=ft.Column([field, results], tight=True)),
+        title=ft.Text("Search everything"), content=dialog_content,
         actions=[ft.TextButton("Close", on_click=lambda _: page.pop_dialog())]))
     page.run_task(_first_draw, draw)
 

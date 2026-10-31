@@ -594,7 +594,7 @@ class FileBrowser:
             actions.insert(0, ft.TextButton("Empty bin", on_click=lambda _: self.page.run_task(self._empty_bin)))
         dlg = ft.AlertDialog(
             title=ft.Text("Recycle Bin"), modal=True,
-            content=ft.Container(width=460, height=420, content=col),
+            content=ft.Container(width=460, height=min(420, (page.height or 600) - 200), content=col),
             actions=actions)
         self.page.show_dialog(dlg)
 

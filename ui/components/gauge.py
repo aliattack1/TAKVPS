@@ -125,25 +125,28 @@ class LineChartSpark:
             self._enabled = False
             self._fallback.set(values, vmax=vmax, color=color or self._color)
             return
-        pts = build_series(values, fixed_max=None,
-                           padding=max(0, self.n - len(list(values))))
-        y_max = nice_y_max(values, fixed_max=vmax or self._fixed_max)
+        vals = list(values)
+        pts = build_series(vals, fixed_max=None,
+                           padding=max(0, self.n - len(vals)))
+        y_max = nice_y_max(vals, fixed_max=vmax or self._fixed_max)
         data_color = color or self._color
-        # Reuse the same LineChart object; just swap data_series and y-range.
-        # This is much cheaper than rebuilding the chart on every poll.
-        self._chart.data_series = [
+        # Rebuild the data_series list entirely (new list object) so Flet
+        # detects the change and re-renders the chart. Mutating in place
+        # sometimes doesn't trigger a redraw on Windows/desktop.
+        new_series = [
             fc.LineChartData(
                 points=[fc.LineChartDataPoint(x=x, y=y, show_tooltip=False) for x, y in pts],
                 color=data_color,
                 stroke_width=self._stroke,
-                curved=True,                               # smoother lines for short histories
-                # Hide per-point markers on a sparkline — they'd add visual noise.
+                curved=True,
                 point=False,
                 selected_point=False,
                 above_line_bgcolor=None,
                 below_line_bgcolor=None,
             )
         ]
-        self._chart.max_y = y_max
+        # Assign a NEW list so Flet's diffing picks up the change.
+        self._chart.data_series = new_series
+        self._chart.max_y = y_max if y_max > 0 else 1.0
         self._chart.max_x = float(max(self.n - 1, len(pts) - 1))
 
