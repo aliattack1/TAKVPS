@@ -50,16 +50,24 @@ jobs:
           file=$(find "$HOME/.pub-cache" -path "*serious_python-*/bin/package_command.dart" | head -1)
           sed -i 's|const mobilePyPiUrl = "https://pypi.flet.dev";|const mobilePyPiUrl = "https://pypi.flet.dev/";|' "$file"
 
-      - name: Build signed APK
+      - name: Build APK
+        run: flet build apk --verbose --yes
+
+      - name: Sign APK with apksigner
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          flet build apk --verbose --yes \
-            --keystore "$HOME/takvps.keystore" \
-            --keystore-password "$KEYSTORE_PASSWORD" \
-            --keystore-key-alias takvps \
-            --keystore-key-password "$KEY_PASSWORD"
+          APK=$(find build -name "*.apk" -path "*release*" | head -1)
+          echo "Signing: $APK"
+          BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/*/ | sort -V | tail -1)
+          "${BUILD_TOOLS}apksigner" sign \
+            --ks "$HOME/takvps.keystore" \
+            --ks-key-alias takvps \
+            --ks-pass "pass:$KEYSTORE_PASSWORD" \
+            --key-pass "pass:$KEY_PASSWORD" \
+            "$APK"
+          "${BUILD_TOOLS}apksigner" verify --print-certs "$APK"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
