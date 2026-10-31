@@ -1,0 +1,6 @@
+flet>=0.80
+flet-charts>=0.2        # Phase 14: real LineChart in the Monitor; falls back to bar sparkline
+asyncssh>=2.14
+httpx>=0.27
+cryptography
+pytest

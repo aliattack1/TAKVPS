@@ -1,0 +1,15 @@
+[project]
+name = "takvps"
+version = "0.1.0"
+description = "Client-only SSH / VPS manager"
+requires-python = ">=3.10"
+dependencies = [
+  "flet>=0.80",
+  "asyncssh>=2.14",
+  "httpx>=0.27",
+  "cryptography",
+]
+
+[tool.flet]
+org = "dev.takvps"
+product = "TAKVPS"
