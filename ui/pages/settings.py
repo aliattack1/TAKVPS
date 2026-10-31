@@ -89,6 +89,17 @@ def settings_page(ctx: AppContext) -> ft.Control:
         s.monitor_line_charts = bool(e.control.value)
         store.save()
 
+    def _set_fleet_conc(e, s, store):
+        try:
+            s.fleet_concurrency = max(1, min(16, int(e.control.value)))
+            store.save()
+        except (ValueError, TypeError):
+            pass
+
+    def set_ai_prefer_local(e):
+        s.ai_prefer_local = bool(e.control.value)
+        store.save()
+
     def thr_slider(label, attr, lo=30):
         cur = getattr(s, attr)
 
@@ -176,6 +187,10 @@ def settings_page(ctx: AppContext) -> ft.Control:
                 "Falls back automatically when the package isn't installed.",
                 size=12, opacity=0.7),
         ft.Text("Polling runs only while the Monitor page is open.", size=12, opacity=0.7),
+        ft.TextField(label="Fleet concurrency (1–16)", value=str(s.fleet_concurrency), width=160,
+                     keyboard_type=ft.KeyboardType.NUMBER, on_change=lambda e: _set_fleet_conc(e, s, store)),
+        ft.Text("Max parallel SSH connections when probing or running commands across all servers. "
+                "Lower this on devices with low file-descriptor limits.", size=12, opacity=0.7),
         ft.Divider(), h("Files"),
         ft.Switch(label="Show hidden files", value=s.files_hidden, on_change=set_hidden),
         ft.TextField(label="Download folder", value=s.download_dir, hint_text=str(default_download_dir()),
@@ -190,6 +205,10 @@ def settings_page(ctx: AppContext) -> ft.Control:
                      keyboard_type=ft.KeyboardType.NUMBER, on_change=set_ai_steps),
         ft.Switch(label="Native tool-calling (Phase 13)", value=s.ai_native_tools, on_change=set_ai_native_tools),
         ft.Switch(label="Show raw tool calls (Phase 14)", value=s.ai_show_tool_calls, on_change=set_ai_show_tool_calls),
+        ft.Switch(label="Prefer local model (Phase 15)", value=s.ai_prefer_local, on_change=set_ai_prefer_local),
+        ft.Text("When on, the assistant prefers a local model (Ollama / LM Studio / vLLM on your "
+                "LAN) over a cloud provider when both are configured. Falls back to cloud when no "
+                "local profile exists.", size=12, opacity=0.7),
         ft.Text("When on, assistant messages that used native tool-calling show a collapsible "
                 "block with the exact tool-call payloads (function name, args, and the result), "
                 "so you can inspect what the model sent. Off by default — only enable for debugging.",

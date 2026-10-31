@@ -771,20 +771,66 @@ class FileBrowser:
             pass
 
     async def _upload_dropped(self, paths: list[str]) -> None:
-        """Phase 13.4: handle files dropped from the OS into the file list."""
+        """Phase 15 (A1): handle files AND folders dropped from the OS.
+        Folders are walked locally and uploaded as a recursive tree."""
         if not self._connected():
             return
-        if not await self.ctx.safe_confirm("Upload dropped files",
-                                          f"{len(paths)} file(s) dropped onto {self.cwd}"):
-            return
+        # Separate files from folders
+        files, folders = [], []
         for path in paths:
+            try:
+                if os.path.isdir(path):
+                    folders.append(path)
+                else:
+                    files.append(path)
+            except OSError:
+                files.append(path)     # treat as file if we can't stat
+        total = len(files) + len(folders)
+        if not await self.ctx.safe_confirm("Upload dropped items",
+                                          f"{total} item(s) dropped onto {self.cwd}"
+                                          + (f" ({len(folders)} folder{'s' if len(folders) != 1 else ''})" if folders else "")):
+            return
+        # Upload single files via the transfer queue (fast path).
+        for path in files:
             name = os.path.basename(path)
             try:
                 size = os.path.getsize(path)
             except OSError:
                 size = 0
             self.ctx.transfers.add_upload(path, F.join(self.cwd, name), name, size)
-        toast(self.page, f"Queued {len(paths)} dropped file(s) for upload.")
+        # Upload folders via the folder-transfer plan (recursive).
+        for folder_path in folders:
+            await self._upload_folder_dropped(folder_path)
+        if files:
+            toast(self.page, f"Queued {len(files)} file(s) for upload.")
+        if folders:
+            toast(self.page, f"Uploading {len(folders)} folder(s)…")
+
+    async def _upload_folder_dropped(self, local_path: str) -> None:
+        """Phase 15 (A1): walk a local folder and upload it recursively."""
+        folder_name = os.path.basename(local_path.rstrip("/\\"))
+        remote_root = F.join(self.cwd, folder_name)
+        try:
+            plan = FT.build_plan_up(local_path, remote_root, folder_name)
+        except Exception as e:  # noqa: BLE001
+            toast(self.page, f"Couldn't walk '{folder_name}': {e}", error=True)
+            return
+        if not plan.files:
+            toast(self.page, f"'{folder_name}' is empty.")
+            return
+        # Create remote dirs first.
+        if plan.dirs:
+            try:
+                cmd = FT.make_dirs_command([F.join(remote_root, d) for d in plan.dirs])
+                await self.ctx.ssh.run(cmd, timeout=30)
+            except TakError as e:
+                toast(self.page, f"Couldn't create remote dirs: {e.message}", error=True)
+                return
+        # Queue each file for upload.
+        for src, dst, size in FT.plan_entries(plan):
+            name = posixpath.basename(dst)
+            self.ctx.transfers.add_upload(src, dst, name, size)
+
 
     # ------------------------------------------------------------ dialogs
     def properties(self, e: RemoteEntry) -> None:

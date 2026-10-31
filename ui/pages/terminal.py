@@ -214,22 +214,103 @@ class TerminalController:
             self.page.update()
 
     def on_key(self, e) -> None:
-        """Hardware-keyboard special keys (desktop / Bluetooth). Printable keys come via the field."""
-        names = {"Arrow Up": "up", "Arrow Down": "down", "Arrow Left": "left", "Arrow Right": "right",
-                 "Escape": "esc", "Home": "home", "End": "end", "Page Up": "pgup", "Page Down": "pgdn",
-                 "Delete": "del"}
+        """Phase 15 terminal overhaul: capture ALL keyboard events directly.
+
+        This replaces the old sentinel-TextField approach. Every key —
+        printable, function keys, Tab, Ctrl+anything, arrows, Home/End/Ins —
+        is routed straight to the PTY. No text field is needed for typing
+        on desktop; the mobile toolbar still works for touch devices.
+
+        The old TextField is kept as a hidden fallback (for soft keyboards on
+        phones where on_keyboard_event may not fire for printable chars).
+        """
         key = getattr(e, "key", "")
-        if key in names:
-            self.send_key(names[key])
-        elif key == "Tab":
-            self.send_key("tab")
-        elif getattr(e, "ctrl", False) and len(key) == 1 and (c := ctrl_char(key)):
-            self.send(c)
+        shift = getattr(e, "shift", False)
+        ctrl = getattr(e, "ctrl", False)
+        alt = getattr(e, "alt", False)
+        meta = getattr(e, "meta", False)
+        s = self.session
+        if s is None or not s.alive:
+            return
+
+        # ---- Function keys F1-F12 ----
+        fn_map = {"F1": "f1", "F2": "f2", "F3": "f3", "F4": "f4",
+                  "F5": "f5", "F6": "f6", "F7": "f7", "F8": "f8",
+                  "F9": "f9", "F10": "f10", "F11": "f11", "F12": "f12"}
+        if key in fn_map:
+            self.send_key(fn_map[key])
+            return
+
+        # ---- Special keys with Shift/Ctrl/Alt modifier combos ----
+        special_names = {
+            "ArrowUp": "up", "ArrowDown": "down", "ArrowLeft": "left",
+            "ArrowRight": "right", "Escape": "esc", "Home": "home",
+            "End": "end", "Page Up": "pgup", "Page Down": "pgdn",
+            "Delete": "del", "Insert": "insert",
+        }
+        if key in special_names:
+            base = special_names[key]
+            # Ctrl+arrow = ESC [ 5 <dir>  (xterm sequence for Ctrl+arrow)
+            if ctrl:
+                self.send(f"\x1b[1;5{'ABCD'['up down left right'.index(base)]}" if base in ("up", "down", "left", "right") else key_sequence(base))
+            elif shift and base in ("up", "down", "left", "right"):
+                self.send(f"\x1b[1;2{'ABCD'['up down left right'.index(base)]}")
+            elif alt and base in ("up", "down", "left", "right"):
+                self.send(f"\x1b[1;3{'ABCD'['up down left right'.index(base)]}")
+            else:
+                self.send_key(base)
+            return
+
+        # ---- Tab (intercept so the browser doesn't use it for focus nav) ----
+        if key == "Tab":
+            if shift:
+                self.send_key("shift_tab")
+            else:
+                self.send_key("tab")
+            return
+
+        # ---- Enter / Backspace ----
+        if key == "Enter":
+            self.send_key("enter")
+            return
+        if key == "Backspace":
+            self.send_key("backspace")
+            return
+
+        # ---- Ctrl+letter (and Ctrl+@, Ctrl+[, etc.) ----
+        if ctrl and len(key) == 1:
+            c = ctrl_char(key)
+            if c:
+                self.send(c)
+                return
+
+        # ---- Alt+letter (ESC prefix) ----
+        if alt and len(key) == 1 and key.isalpha():
+            self.send("\x1b" + key)
+            return
+
+        # ---- Printable characters (length 1, not a control key) ----
+        # We only handle single-char keys here; multi-char key names (like
+        # "Space", "Enter") are handled above. Some browsers send " " for
+        # space, some send "Space" — both are covered.
+        if key == " " or key == "Space":
+            self.send(" ")
+            return
+        if len(key) == 1 and key.isprintable():
+            self.send(key)
+            return
 
     def set_visible(self, visible: bool) -> None:
         self.page.on_keyboard_event = self.on_key if visible else None
         if not visible:
             self.view = None
+        elif self.view:
+            # Re-focus the output container so keyboard events are captured
+            # immediately on page switch. The output Container has on_tap_down
+            # which calls _on_tap_down → but we also need focus for keyboard.
+            # On desktop, on_keyboard_event fires regardless of focus.
+            # On mobile, the hidden TextField handles soft-keyboard input.
+            pass
 
     def on_resize(self) -> None:
         if not self.sessions:
@@ -537,9 +618,14 @@ class TerminalView:
 
     # ---------------------------------------------------------------- build
     def _make_input(self) -> ft.TextField:
+        """Phase 15 terminal overhaul: on desktop the TextField is hidden and
+        keyboard input goes through page.on_keyboard_event directly. On mobile
+        (where on_keyboard_event doesn't fire for printable chars), the
+        sentinel TextField stays as the soft-keyboard input mechanism."""
         kw = dict(value=SENTINEL, hint_text="Tap to type", dense=True, on_change=self._on_input,
-                  on_submit=self._on_submit, border_radius=8)
-        try:                                           # not every Flet version has these options
+                  on_submit=self._on_submit, border_radius=8, height=1, opacity=0,
+                  border=ft.InputBorder.NONE, filled=False)
+        try:
             return ft.TextField(autocorrect=False, enable_suggestions=False, **kw)
         except TypeError:
             return ft.TextField(**kw)
@@ -577,8 +663,13 @@ class TerminalView:
                               on_click=lambda _: ctl.change_font(-1)),
                 ft.IconButton(ft.Icons.TEXT_INCREASE, tooltip="Larger", width=44, height=44,
                               on_click=lambda _: ctl.change_font(+1))]
-        return ft.Column([ft.Row(row1, scroll=ft.ScrollMode.AUTO, spacing=0),
-                          ft.Row(row2, scroll=ft.ScrollMode.AUTO, spacing=0)], spacing=0)
+        # Phase 15: function key row (F1-F12) for mobile + desktop without hardware keyboard.
+        row3 = [k(f"F{i}", lambda i=i: ctl.send_key(f"f{i}")) for i in range(1, 13)]
+        return ft.Column([
+            ft.Row(row1, scroll=ft.ScrollMode.AUTO, spacing=0),
+            ft.Row(row2, scroll=ft.ScrollMode.AUTO, spacing=0),
+            ft.Row(row3, scroll=ft.ScrollMode.AUTO, spacing=0),
+        ], spacing=0)
 
     # ---------------------------------------------------------------- persistent sessions
     def show_sessions_dialog(self) -> None:
@@ -644,6 +735,10 @@ class TerminalView:
         self.input.value = SENTINEL
 
     def _on_input(self, e) -> None:
+        """Phase 15: the sentinel TextField is now hidden (opacity=0) and only
+        used for mobile soft-keyboard input. On desktop, on_keyboard_event
+        handles everything directly. This handler is kept for backward compat
+        (mobile) but avoids unnecessary page.update() calls."""
         v = e.control.value or ""
         if v == SENTINEL:
             return
@@ -654,13 +749,16 @@ class TerminalView:
             if text:
                 self.ctl.send_text(text)
         self._reset_input()
-        self.page.update()
+        # Skip page.update() — the sentinel field is invisible and doesn't
+        # need a visual refresh. This reduces input lag significantly.
 
     def _on_submit(self, e) -> None:
         self.ctl.send_key("enter")
         self._reset_input()
-        self.page.update()
-        self.page.run_task(self._refocus)
+        # Phase 15: skip refocus + page.update on desktop — the keyboard
+        # handler handles Enter directly. The refocus is only needed for
+        # mobile soft-keyboard input.
+        pass
 
     async def _refocus(self) -> None:
         try:

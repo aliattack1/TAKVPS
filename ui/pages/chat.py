@@ -65,6 +65,15 @@ class ChatController:
         if p is None:
             lst = self.ctx.ai_profiles.list()
             p = lst[0] if lst else None
+        # Phase 15 (D2): if "prefer local" is on, and the active profile isn't
+        # local, try to find a local profile on the same network.
+        if p and getattr(self.s, "ai_prefer_local", False):
+            from services.ai_routing import is_local_profile, pick_best_profile
+            if not is_local_profile(p):
+                lst = self.ctx.ai_profiles.list()
+                best = pick_best_profile(lst, prefer_local=True)
+                if best and is_local_profile(best):
+                    p = best
         return p
 
     def build_view(self, compact: bool = False, on_close: Optional[Callable[[], None]] = None) -> ft.Control:

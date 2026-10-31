@@ -32,11 +32,14 @@ class Settings:
     safe_mode: bool = False
     last_connection_id: str = ""
     connect_on_launch: bool = False
+    first_run_done: bool = False      # Phase 15 (G1): first-run tour shown?
     ai_active_profile: str = ""
     ai_default_mode: str = "suggest"
     ai_step_limit: int = 8
     ai_native_tools: bool = True    # Phase 13.6: use native tool-calling when the provider supports it
     ai_show_tool_calls: bool = False  # Phase 14 Part 8: show raw tool-call payloads in the chat
+    ai_prefer_local: bool = False     # Phase 15 (D2): prefer local model when on same network
+    fleet_concurrency: int = 4        # Phase 15 (E2): max parallel SSH connections for fleet ops
     ai_context: dict = field(default_factory=lambda: {
         "os": True, "shell": True, "cwd": True, "pkg": True, "term": 0, "services": False})
     env_targets: dict = field(default_factory=dict)       # .env path -> service/container to restart

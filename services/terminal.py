@@ -550,7 +550,12 @@ def key_sequence(name: str, app_cursor: bool = False) -> str:
     return {"up": o + "A", "down": o + "B", "right": o + "C", "left": o + "D",
             "home": o + "H", "end": o + "F", "pgup": "\x1b[5~", "pgdn": "\x1b[6~",
             "esc": "\x1b", "tab": "\t", "shift_tab": "\x1b[Z", "del": "\x1b[3~",
-            "enter": "\r", "backspace": "\x7f"}.get(name, "")
+            "enter": "\r", "backspace": "\x7f",
+            "insert": "\x1b[2~",
+            "f1": "\x1bOP", "f2": "\x1bOQ", "f3": "\x1bOR", "f4": "\x1bOS",
+            "f5": "\x1b[15~", "f6": "\x1b[17~", "f7": "\x1b[18~", "f8": "\x1b[19~",
+            "f9": "\x1b[20~", "f10": "\x1b[21~", "f11": "\x1b[23~", "f12": "\x1b[24~",
+            }.get(name, "")
 
 
 def ctrl_char(ch: str) -> Optional[str]:

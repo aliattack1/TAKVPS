@@ -237,16 +237,30 @@ class Shell:
         # Phase 14 fix: wrap the topbar buttons in a scrollable Row so they stay
         # reachable on narrow phones instead of overflowing off-screen.
         from .components.common import toolbar
+        from .page_help import PAGE_HELP
+        help_text = PAGE_HELP.get(self.key, "No help available for this page.")
         return ft.Container(
             padding=ft.Padding.symmetric(horizontal=SPACE),
             content=toolbar(
                 ft.Text(title, size=16, weight=ft.FontWeight.W_600, no_wrap=True),
                 ft.IconButton(ft.Icons.SEARCH, tooltip="Search everything", width=44, height=44,
                               on_click=lambda _: open_palette(self.ctx)),
+                ft.IconButton(ft.Icons.HELP_OUTLINE, tooltip="Help", width=44, height=44,
+                              on_click=lambda _: self._show_help(help_text)),
                 ft.IconButton(ft.Icons.SMART_TOY, tooltip="AI assistant", width=44, height=44,
                               selected=self.panel == "chat", on_click=self._toggle_chat),
                 ft.IconButton(ft.Icons.FOLDER_OPEN, tooltip="Files", width=44, height=44,
                               selected=self.panel == "files", on_click=self._toggle_files)))
+
+    def _show_help(self, text: str) -> None:
+        """Phase 15 (G2): show a help dialog for the current page."""
+        dlg = ft.AlertDialog(
+            title=ft.Text("Help"), modal=True,
+            content=ft.Container(width=380, content=ft.Column([
+                ft.Text(text, size=13, selectable=True),
+            ], tight=True, scroll=ft.ScrollMode.AUTO)),
+            actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())])
+        self.page.show_dialog(dlg)
 
     # ---- layout ----
     def render(self) -> None:

@@ -206,6 +206,21 @@ class CronView:
                            text_style=ft.TextStyle(font_family="monospace"),
                            hint_text="/usr/bin/backup.sh >> /var/log/backup.log 2>&1")
         preview = ft.Text("", size=12)
+        # Phase 15 (C3): quick preset buttons for common schedules.
+        presets = ft.Row([
+            ft.TextButton("Every 5 min", on_click=lambda _: _apply_preset("*/5 * * * *")),
+            ft.TextButton("Hourly", on_click=lambda _: _apply_preset("0 * * * *")),
+            ft.TextButton("Daily 3am", on_click=lambda _: _apply_preset("0 3 * * *")),
+            ft.TextButton("Weekdays 9am", on_click=lambda _: _apply_preset("0 9 * * 1-5")),
+            ft.TextButton("Weekly Sun", on_click=lambda _: _apply_preset("0 0 * * 0")),
+            ft.TextButton("Monthly", on_click=lambda _: _apply_preset("0 0 1 * *")),
+        ], spacing=4, scroll=ft.ScrollMode.AUTO)
+
+        def _apply_preset(expr_str: str) -> None:
+            """Phase 15 (C3): apply a preset cron expression."""
+            kind.value = "custom"
+            expr.value = expr_str
+            refresh()
         fields = {"minutes": [n], "hourly": [minute], "daily": [hour, minute], "weekly": [dow, hour, minute],
                   "monthly": [dom, hour, minute], "reboot": [], "custom": [expr]}
         holder = ft.Column(tight=True, spacing=theme.SPACE)
@@ -260,7 +275,7 @@ class CronView:
         refresh()
         page.show_dialog(ft.AlertDialog(
             title=ft.Text("Edit job" if job else "New job"), scrollable=True,
-            content=ft.Container(width=340, content=ft.Column([kind, holder, preview, cmd], tight=True,
+            content=ft.Container(width=340, content=ft.Column([kind, presets, holder, preview, cmd], tight=True,
                                                               spacing=theme.SPACE)),
             actions=[ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
                      ft.FilledButton("Save", on_click=do_save)]))

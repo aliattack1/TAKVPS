@@ -62,7 +62,80 @@ async def main(page: ft.Page) -> None:
         lock_now(first=True)
     else:
         await start()
+    # Phase 15 (G1): first-run tour.
+    if not s.first_run_done:
+        page.run_task(_show_tour, ctx)
 
 
 if __name__ == "__main__":
     ft.run(main)
+
+
+async def _show_tour(ctx) -> None:
+    """Phase 15 (G1): a 4-card intro shown on first launch."""
+    import flet as ft
+    page = ctx.page
+    ctx.store.data.first_run_done = True
+    ctx.store.save()
+
+    cards = [
+        (ft.Icons.DNS, "Connect a server",
+         "Go to the Servers page and tap Add. Enter the host, port, username, and password or SSH key. "
+         "Tap Test to check reachability, then Save."),
+        (ft.Icons.FOLDER, "Browse files",
+         "The Files page uses SFTP — navigate, upload, download, rename, and delete with the toolbar. "
+         "Deleted items go to the Recycle Bin on the server; restore from there."),
+        (ft.Icons.SMART_TOY, "Ask the AI",
+         "The AI assistant (robot icon in the topbar) can suggest and run commands. "
+         "Bring your own API key (OpenAI, Anthropic, Gemini, or local Ollama). "
+         "Secrets are redacted before sending."),
+        (ft.Icons.APPS, "Explore Tools",
+         "The Tools page (in the bottom bar) is the hub for every manager: Docker, Nginx, Cron, "
+         "Packages, Firewall, Databases, and more. Tap any tile to open it."),
+    ]
+    idx = [0]
+
+    def render_card() -> ft.Control:
+        icon, title, body = cards[idx[0]]
+        return ft.Column([
+            ft.Icon(icon, size=48, color=ft.Colors.PRIMARY),
+            ft.Text(title, size=18, weight=ft.FontWeight.W_700),
+            ft.Text(body, size=13, selectable=True, text_align=ft.TextAlign.CENTER),
+        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=12)
+
+    content_col = ft.Container(width=360, padding=20, content=render_card())
+
+    def next_card(_=None) -> None:
+        if idx[0] < len(cards) - 1:
+            idx[0] += 1
+            content_col.content = render_card()
+            _update_buttons()
+            page.update()
+        else:
+            page.pop_dialog()
+
+    def prev_card(_=None) -> None:
+        if idx[0] > 0:
+            idx[0] -= 1
+            content_col.content = render_card()
+            _update_buttons()
+            page.update()
+
+    def skip(_=None) -> None:
+        page.pop_dialog()
+
+    btn_prev = ft.TextButton("Back", on_click=prev_card)
+    btn_next = ft.FilledButton("Next", on_click=next_card)
+    btn_skip = ft.TextButton("Skip", on_click=skip)
+
+    def _update_buttons() -> None:
+        btn_prev.visible = idx[0] > 0
+        btn_next.text = "Done" if idx[0] == len(cards) - 1 else "Next"
+
+    _update_buttons()
+    dlg = ft.AlertDialog(
+        title=ft.Text(f"Welcome to TAKVPS ({idx[0] + 1}/{len(cards)})", size=16),
+        modal=True,
+        content=content_col,
+        actions=[btn_skip, btn_prev, btn_next])
+    page.show_dialog(dlg)

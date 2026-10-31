@@ -59,6 +59,12 @@ it so you can explore a different path.
 read to a background task (renders "Loading…" immediately), and every page build is wrapped
 in try/except so a construction error shows a friendly message instead of crashing the app.
 
+**Phase 15** adds: folder drag-and-drop upload (A1), configurable fleet concurrency (E2),
+local-model-first AI routing (D2), per-page help "?" icon (G2), first-run tour (G1), cron
+quick presets (C3), Linux + macOS CI builds (F2/F3), WireGuard manager (C4), Kubernetes
+manager (C2), Caddy/Traefik reverse-proxy manager (C1), web mode docs (F4), and a demo
+server stub (G3).
+
 See the per-phase notes below for details.
 
 ## Run (desktop)

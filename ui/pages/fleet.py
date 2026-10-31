@@ -160,7 +160,8 @@ class FleetView:
         self.busy = True
         self.progress.visible = True
         self.page.update()
-        sem = asyncio.Semaphore(4)
+        # Phase 15 (E2): configurable concurrency cap from settings.
+        sem = asyncio.Semaphore(max(1, min(16, getattr(self.ctx.store.data, "fleet_concurrency", 4))))
 
         async def one(p: ConnectionProfile) -> None:
             async with sem:
@@ -306,7 +307,7 @@ class FleetView:
             connect_and_run=lambda r, c, s, t: _connect_and_run_for_fleet(self.ctx, r, c, s, t),
             preflight=_preflight_for_fleet(self.ctx),
             gate=None,
-            concurrency=4,
+            concurrency=max(1, min(16, getattr(self.ctx.store.data, "fleet_concurrency", 4))),
             per_run_timeout=90.0,
         )
         self._show_live_dialog(command, sudo)
