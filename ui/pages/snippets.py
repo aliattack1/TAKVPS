@@ -290,7 +290,7 @@ def open_snippet_editor(ctx: AppContext, existing: Optional[S.Snippet], prefill:
         ctx.refresh_ui()
 
     page.show_dialog(ft.AlertDialog(
-        title=ft.Text("Edit command" if existing else "New command"), scrollable=True,
+                title=ft.Text("Edit command" if existing else "New command"), scrollable=True,
         content=ft.Container(width=340, content=ft.Column(
             [name, cmd, risk, cwd, group, sudo, bg, scope, icon, sw], tight=True, spacing=theme.SPACE)),
         actions=[ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
@@ -326,7 +326,7 @@ def open_deploy_editor(ctx: AppContext, existing: Optional[D.Deploy]) -> None:
         ctx.refresh_ui()
 
     page.show_dialog(ft.AlertDialog(
-        title=ft.Text("Edit deploy recipe" if existing else "New deploy recipe"), scrollable=True,
+                title=ft.Text("Edit deploy recipe" if existing else "New deploy recipe"), scrollable=True,
         content=ft.Container(width=340, content=ft.Column([
             name, pdir, branch, steps, kind, target, health, scope,
             ft.Text("Deploy: git pull → build steps → restart → health check. If a step fails you can roll back "
@@ -356,7 +356,7 @@ def open_packs(ctx: AppContext) -> None:
         open_import_preview(ctx, pack)
 
     page.show_dialog(ft.AlertDialog(
-        title=ft.Text("Snippet packs"), scrollable=True,
+                title=ft.Text("Snippet packs"), scrollable=True,
         content=ft.Container(width=340, content=ft.Column([
             ft.Text("Built-in packs", weight=ft.FontWeight.W_600),
             *[ft.TextButton(n, icon=ft.Icons.INVENTORY_2, on_click=lambda _, n=n: builtin(n)) for n in K.BUILTIN_PACKS],
@@ -392,7 +392,7 @@ def open_import_preview(ctx: AppContext, pack: K.Pack) -> None:
         toast(page, f"Imported {len(sns) + len(dps)} item(s).")
 
     page.show_dialog(ft.AlertDialog(
-        title=ft.Text(f"Import “{pack.name}”"), scrollable=True,
+                title=ft.Text(f"Import “{pack.name}”"), scrollable=True,
         content=ft.Container(width=340, content=ft.Column([
             ft.Text("Review each command. Dangerous ones are unchecked by default.", size=12), *rows],
             tight=True, spacing=theme.SPACE)),
@@ -416,7 +416,7 @@ def open_export(ctx: AppContext) -> None:
         page.update()
 
     page.show_dialog(ft.AlertDialog(
-        title=ft.Text("Export pack"), scrollable=True,
+                title=ft.Text("Export pack"), scrollable=True,
         content=ft.Container(width=340, content=ft.Column([
             *([c for c, _ in checks] or [ft.Text("Nothing to export yet.")]),
             ft.FilledTonalButton("Create pack text", on_click=make), result,
@@ -432,7 +432,7 @@ def open_history(ctx: AppContext, item_id: str) -> None:
 
     def show(r: dict) -> None:
         page.show_dialog(ft.AlertDialog(
-            title=ft.Text(r["name"]), scrollable=True,
+                        title=ft.Text(r["name"]), scrollable=True,
             content=ft.Container(width=340, content=ft.Column([
                 ft.Text(f"exit {r['exit']} · {r['sec']} s · {time_ago(r['ts'])}", size=12),
                 ft.Text(r.get("out") or "(no output)", font_family="monospace", size=11, selectable=True)],
@@ -445,6 +445,7 @@ def open_history(ctx: AppContext, item_id: str) -> None:
         title=ft.Text(r["name"], no_wrap=True), subtitle=ft.Text(f"{time_ago(r['ts'])} · exit {r['exit']} · {r['sec']} s"),
         on_click=lambda _, r=r: show(r)) for r in runs]
     page.show_dialog(ft.AlertDialog(
+        scrollable=True,
         title=ft.Text("Run history"),
         content=ft.Container(width=340, height=360, content=ft.ListView(
             rows or [ft.Text("Nothing has been run yet.", opacity=0.7)])),

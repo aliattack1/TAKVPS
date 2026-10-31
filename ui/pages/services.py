@@ -163,7 +163,7 @@ class ServicesView:
 
     def _show_text(self, title: str, body: str, actions: list | None = None) -> None:
         self.page.show_dialog(ft.AlertDialog(
-            title=ft.Text(title, no_wrap=True), scrollable=True,
+                        title=ft.Text(title, no_wrap=True), scrollable=True,
             content=ft.Container(width=380, content=ft.Text(body, font_family="monospace", size=11, selectable=True)),
             actions=(actions or []) + [ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
 

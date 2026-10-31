@@ -398,7 +398,7 @@ class DatabasesView:
             page.pop_dialog()
             await self.refresh()
         page.show_dialog(ft.AlertDialog(
-            title=ft.Text(f"{D.ENGINES[eng]} connection"), scrollable=True,
+                        title=ft.Text(f"{D.ENGINES[eng]} connection"), scrollable=True,
             content=ft.Container(width=340, content=ft.Column([mode, user, pw, host, port, path, sudo,
                 ft.Text("The password is stored encrypted on this phone and sent to the server on stdin — never in a command line.",
                         size=11, opacity=0.7)], tight=True, spacing=theme.SPACE)),

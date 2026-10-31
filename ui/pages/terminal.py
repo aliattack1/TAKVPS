@@ -297,6 +297,7 @@ class TerminalController:
                     ft.Text(cmd, size=11, font_family="monospace", expand=True, no_wrap=True),
                 ])))
         self.page.show_dialog(ft.AlertDialog(
+            scrollable=True,
             title=ft.Text(f"Command history ({len(self.cmd_history)})"), modal=True,
             content=ft.Container(width=400, height=min(350, (page.height or 600) - 200), content=col),
             actions=[ft.TextButton("Clear history", on_click=lambda _: (setattr(self, "cmd_history", []), setattr(self, "cmd_history_idx", -1), self.page.pop_dialog())),
@@ -858,6 +859,7 @@ class TerminalView:
         col.controls.append(ft.Text("Tip: detach inside the session with Ctrl-B then D; "
                                      "the session keeps running on the server.", size=11, opacity=0.6))
         dlg = ft.AlertDialog(
+            scrollable=True,
             title=ft.Text("Persistent sessions (tmux)"), modal=True,
             content=ft.Container(width=420, height=min(400, (page.height or 600) - 200), content=col),
             actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())])
@@ -1028,6 +1030,7 @@ class TerminalView:
             padding=8, border_radius=8, height=200))
 
         dlg = ft.AlertDialog(
+            scrollable=True,
             title=ft.Text("Copy terminal output"), modal=True,
             content=ft.Container(width=400, height=min(450, (page.height or 600) - 200), content=col),
             actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())])
@@ -1080,6 +1083,7 @@ class TerminalView:
             self.page.run_task(self.ctl.copy_text, row_text)
 
         dlg = ft.AlertDialog(
+            scrollable=True,
             title=ft.Text("Send to AI?", modal=True),
             content=ft.Container(width=400, content=ft.Column([
                 ft.Text("Line you pressed:", size=11, opacity=0.7),

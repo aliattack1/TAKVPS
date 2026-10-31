@@ -49,7 +49,7 @@ from .pages.users import users_page
 from .pages.wireguard import wireguard_page
 from .pages.k8s import k8s_page
 from .pages.proxy import proxy_page
-from .theme import PHONE_MAX_WIDTH, SPACE
+from .theme import PHONE_MAX_WIDTH, RADIUS, SPACE
 
 LIVE_KEYS = ("servers", "overview", "files", "snippets", "services", "cron", "packages", "docker", "nginx", "firewall", "processes", "network", "users", "activity", "fleet", "backups", "tunnels", "diskusage", "health", "databases")   # rebuilt on connection events
 BOTTOM_SLOTS = 4
@@ -263,6 +263,7 @@ class Shell:
     def _show_help(self, text: str) -> None:
         """Phase 15 (G2): show a help dialog for the current page."""
         dlg = ft.AlertDialog(
+            scrollable=True,
             title=ft.Text("Help"), modal=True,
             content=ft.Container(width=380, content=ft.Column([
                 ft.Text(text, size=13, selectable=True),
@@ -301,17 +302,30 @@ class Shell:
             def rail_pick(e):
                 self._select(int(e.control.selected_index))
 
-            rail = ft.NavigationRail(
-                selected_index=self.index, label_type=ft.NavigationRailLabelType.ALL,
-                destinations=[ft.NavigationRailDestination(icon=d.icon, label=d.label) for d in self.dests],
-                on_change=rail_pick,
-                extended=False)     # compact icons so they fit more destinations
-            # Wrap the rail in a scrollable container in case there are too many
-            # destinations to fit vertically on a short window.
-            rail_container = ft.Container(
-                content=ft.Column([rail], scroll=ft.ScrollMode.AUTO, expand=True),
-                height=(self.page.height or 600) - 20, expand=True)
-            row: list[ft.Control] = [rail_container, ft.VerticalDivider(width=1), main_col]
+            # Build a custom scrollable navigation sidebar instead of NavigationRail,
+            # because NavigationRail doesn't scroll when there are many destinations.
+            rail_items: list[ft.Control] = []
+            for i, d in enumerate(self.dests):
+                is_sel = i == self.index
+                rail_items.append(ft.Container(
+                    ink=True, on_click=lambda _, i=i: self._select(i),
+                    padding=ft.Padding.symmetric(horizontal=12, vertical=10),
+                    bgcolor=ft.Colors.SECONDARY_CONTAINER if is_sel else None,
+                    border_radius=RADIUS,
+                    content=ft.Column([
+                        ft.Icon(d.icon, size=22,
+                                color=ft.Colors.PRIMARY if is_sel else ft.Colors.ON_SURFACE_VARIANT),
+                        ft.Text(d.label, size=10, no_wrap=True,
+                                color=ft.Colors.PRIMARY if is_sel else ft.Colors.ON_SURFACE_VARIANT),
+                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=2),
+                    width=80))
+            rail_list = ft.ListView(rail_items, spacing=2, padding=ft.Padding.symmetric(vertical=8),
+                                     expand=True, auto_scroll=True)
+            rail_col = ft.Container(
+                content=rail_list,
+                width=90, expand=True,
+                bgcolor=ft.Colors.SURFACE)
+            row: list[ft.Control] = [rail_col, ft.VerticalDivider(width=1), main_col]
             if self.panel == "files" and self.key != "files":
                 panel = FileBrowser(self.ctx, compact=True, on_close=self._close_panel)
                 row += [ft.VerticalDivider(width=1), ft.Container(width=PANEL_WIDTH, content=panel.control)]

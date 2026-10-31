@@ -79,6 +79,7 @@ def open_palette(ctx) -> None:
         height=min(400, (page.height or 600) - 250),  # leave room for dialog chrome + keyboard
         content=ft.Column([field, results], tight=True, expand=True))
     page.show_dialog(ft.AlertDialog(
+        scrollable=True,
         title=ft.Text("Search everything"), content=dialog_content,
         actions=[ft.TextButton("Close", on_click=lambda _: page.pop_dialog())]))
     page.run_task(_first_draw, draw)

@@ -128,6 +128,7 @@ def open_transfers(ctx: AppContext) -> None:
         ctx.page.pop_dialog()
 
     ctx.page.show_dialog(ft.AlertDialog(
+        scrollable=True,
         title=ft.Text("Transfers"), content=view.control,
         on_dismiss=lambda _: setattr(ctx, "transfers_view", None),
         actions=[ft.TextButton("Clear finished", on_click=lambda _: ctx.transfers.clear_finished()),

@@ -198,7 +198,7 @@ class FirewallView:
             await self._apply("Add firewall rule", [cmd], "Add this rule.")
 
         page.show_dialog(ft.AlertDialog(
-            title=ft.Text("Add rule"), scrollable=True,
+                        title=ft.Text("Add rule"), scrollable=True,
             content=ft.Container(width=340, content=ft.Column(fields, tight=True, spacing=theme.SPACE)),
             actions=[ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()), ft.FilledButton("Continue", on_click=go)]))
 

@@ -118,7 +118,7 @@ async def open_diff_dialog(ctx: AppContext) -> None:
         page.update()
 
     page.show_dialog(ft.AlertDialog(
-        title=ft.Text("Compare file between servers"), modal=True, scrollable=True,
+                title=ft.Text("Compare file between servers"), modal=True, scrollable=True,
         content=ft.Container(width=440, content=ft.Column([
             ft.Text("Compare a file on the active server with the same path on another server.",
                      size=12, opacity=0.7),

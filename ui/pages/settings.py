@@ -298,6 +298,7 @@ def _export_bundle(ctx: AppContext) -> None:
                 toast(page, "Couldn't access the clipboard.", error=True)
 
         page.show_dialog(ft.AlertDialog(
+            scrollable=True,
             title=ft.Text("Export bundle"), modal=True,
             content=ft.Container(width=420, content=ft.Column([
                 ft.Text(f"Encrypted bundle ({len(blob):,} chars). Copy this text and save it "
@@ -378,6 +379,7 @@ def _ask_passphrase(ctx: AppContext, title: str, on_ok, extra_content: ft.Contro
 
     pw_field.on_submit = confirm
     page.show_dialog(ft.AlertDialog(
+        scrollable=True,
         title=ft.Text(title), modal=True,
         content=ft.Container(width=380, content=ft.Column(col_controls, tight=True, spacing=8)),
         actions=[

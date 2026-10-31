@@ -113,7 +113,7 @@ class EnvView:
             page.pop_dialog()
             self.render()
         page.show_dialog(ft.AlertDialog(
-            title=ft.Text("Edit variable" if line else "Add variable"), scrollable=True,
+                        title=ft.Text("Edit variable" if line else "Add variable"), scrollable=True,
             content=ft.Container(width=340, content=ft.Column([key, val], tight=True, spacing=theme.SPACE)),
             actions=[ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()), ft.FilledButton("OK", on_click=go)]))
 
@@ -173,7 +173,7 @@ class EnvView:
             toast(page, f"{name} restarted." if r and r.ok else ((r.stderr or r.stdout).strip() if r else "Cancelled."), error=bool(r and not r.ok))
 
         page.show_dialog(ft.AlertDialog(
-            title=ft.Text("Restart the related service?"), scrollable=True,
+                        title=ft.Text("Restart the related service?"), scrollable=True,
             content=ft.Container(width=340, content=ft.Column([ft.Text("Most apps only read their environment at start-up.", size=12),
                                                                 kind, target], tight=True, spacing=theme.SPACE)),
             actions=[ft.TextButton("Not now", on_click=lambda _: page.pop_dialog()), ft.FilledButton("Continue", on_click=go)]))

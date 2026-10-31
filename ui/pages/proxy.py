@@ -117,7 +117,7 @@ class ProxyView:
                 f.on_change = gen
             gen()
             self.page.show_dialog(ft.AlertDialog(
-                title=ft.Text(f"Caddy: {label}"), modal=True, scrollable=True,
+                                title=ft.Text(f"Caddy: {label}"), modal=True, scrollable=True,
                 content=ft.Container(width=400, content=ft.Column(
                     [domain_field] + extra + [result], tight=True, spacing=8)),
                 actions=[

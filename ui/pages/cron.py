@@ -132,6 +132,7 @@ class CronView:
             return False
         if not r.ok:
             self.page.show_dialog(ft.AlertDialog(
+                scrollable=True,
                 title=ft.Text("crontab rejected the file"), content=ft.Text(
                     (r.stderr or r.stdout).strip() or "Unknown error.", font_family="monospace", size=12, selectable=True),
                 actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
@@ -274,7 +275,7 @@ class CronView:
 
         refresh()
         page.show_dialog(ft.AlertDialog(
-            title=ft.Text("Edit job" if job else "New job"), scrollable=True,
+                        title=ft.Text("Edit job" if job else "New job"), scrollable=True,
             content=ft.Container(width=340, content=ft.Column([kind, presets, holder, preview, cmd], tight=True,
                                                               spacing=theme.SPACE)),
             actions=[ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
@@ -289,7 +290,7 @@ class CronView:
             page.pop_dialog()
             await self.save(tf.value or "", "Crontab saved.")
         page.show_dialog(ft.AlertDialog(
-            title=ft.Text("Raw crontab"), scrollable=True,
+                        title=ft.Text("Raw crontab"), scrollable=True,
             content=ft.Container(width=360, content=ft.Column([
                 ft.Text("crontab validates the file when saving; the previous version is kept as a local backup.",
                         size=11, opacity=0.7), tf], tight=True)),

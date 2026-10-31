@@ -199,7 +199,7 @@ class UsersView:
                 await self.load()
 
         page.show_dialog(ft.AlertDialog(
-            title=ft.Text(f"Add key for {self.key_user}"), scrollable=True,
+                        title=ft.Text(f"Add key for {self.key_user}"), scrollable=True,
             content=ft.Container(width=340, content=ft.Column([tf, ft.Text("Paste the PUBLIC key (the .pub file). Never paste a private key.",
                                                                             size=11, opacity=0.7)], tight=True)),
             actions=[ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()), ft.FilledButton("Add", on_click=go)]))

@@ -40,7 +40,7 @@ def activity_page(ctx: AppContext) -> ft.Control:
 
     def detail(r: dict) -> None:
         page.show_dialog(ft.AlertDialog(
-            title=ft.Text(r.get("name") or "Command"), scrollable=True,
+                        title=ft.Text(r.get("name") or "Command"), scrollable=True,
             content=ft.Container(width=360, content=ft.Column([
                 ft.Text(f"{time_ago(r['ts'])} · source: {r.get('source')} · risk: {r.get('risk')} · exit: {r.get('exit')}", size=12),
                 ft.Text(r.get("cmd", ""), font_family="monospace", size=11, selectable=True)], tight=True)),
@@ -85,6 +85,7 @@ def activity_page(ctx: AppContext) -> ft.Control:
         color = ft.Colors.GREEN if intact else ft.Colors.ERROR
         icon = ft.Icons.VERIFIED if intact else ft.Icons.WARNING
         page.show_dialog(ft.AlertDialog(
+            scrollable=True,
             title=ft.Text("Activity log integrity"), modal=True,
             content=ft.Container(width=360, content=ft.Column([
                 ft.Row([ft.Icon(icon, color=color, size=24), ft.Text(summary, size=14, weight=ft.FontWeight.W_600, color=color)]),

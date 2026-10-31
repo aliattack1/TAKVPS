@@ -205,6 +205,7 @@ def open_editor(ctx: AppContext, existing: ConnectionProfile | None) -> None:
             page.update()
 
         dlg = ft.AlertDialog(
+            scrollable=True,
             title=ft.Text("Generate SSH key pair"), modal=True,
             content=ft.Container(width=420, content=ft.Column([
                 ft.Text("Generates a new key pair in OpenSSH format. The private key "
@@ -343,7 +344,7 @@ def open_editor(ctx: AppContext, existing: ConnectionProfile | None) -> None:
         ctx.refresh_ui()
 
     page.show_dialog(ft.AlertDialog(
-        title=ft.Text("Edit server" if existing else "Add server"), scrollable=True,
+                title=ft.Text("Edit server" if existing else "Add server"), scrollable=True,
         content=ft.Container(width=340, content=ft.Column(
             [name, host, ft.Row([user, port]), auth, pw_box, key_box, jump, tags,
              ft.Text("Color", size=12, opacity=0.7), swatch_row,
@@ -381,6 +382,7 @@ async def do_export(ctx: AppContext) -> None:
         toast(page, str(e), error=True)
         return
     page.show_dialog(ft.AlertDialog(
+        scrollable=True,
         title=ft.Text("Encrypted export"),
         content=ft.Column([
             ft.Text("Long-press the text to select and copy it. It contains your saved credentials, "
@@ -408,7 +410,7 @@ def open_import(ctx: AppContext) -> None:
         toast(page, f"Imported {len(created)} server(s).")
 
     page.show_dialog(ft.AlertDialog(
-        title=ft.Text("Import connections"), scrollable=True,
+                title=ft.Text("Import connections"), scrollable=True,
         content=ft.Container(width=340, content=ft.Column([text, pw], tight=True)),
         actions=[ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
                  ft.FilledButton("Import", on_click=do)]))

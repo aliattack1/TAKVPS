@@ -83,6 +83,14 @@ async def _show_tour(ctx) -> None:
 async def main(page: ft.Page) -> None:
     page.title = "TAKVPS"
     page.padding = 0
+    # Maximize the window on desktop so content doesn't overflow.
+    try:
+        page.window.width = 1200
+        page.window.height = 800
+        page.window.min_width = 400
+        page.window.min_height = 600
+    except Exception:  # noqa: BLE001
+        pass
     store = SettingsStore()
     s = store.data
     theme.apply(page, s.theme_mode, s.preset, s.accent)

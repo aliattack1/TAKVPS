@@ -254,6 +254,7 @@ class FleetView:
         col.controls.append(ft.Text("Every server runs the same command. Risky commands still need "
                                      "approval; you'll get one prompt covering all of them.", size=11, opacity=0.7))
         dlg = ft.AlertDialog(
+            scrollable=True,
             title=ft.Text("Run on fleet"), modal=True,
             content=ft.Container(width=440, height=min(420, (page.height or 600) - 200), content=col),
             actions=[ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog())])
@@ -391,6 +392,7 @@ class FleetView:
         self.fleet_status.value = "Starting…"
         self._render_fleet_rows()
         dlg = ft.AlertDialog(
+            scrollable=True,
             title=ft.Row([ft.Text("Fleet run", expand=True, weight=ft.FontWeight.W_600),
                           ft.Text(f"sudo" if sudo else "", size=11, opacity=0.7)]),
             modal=True,

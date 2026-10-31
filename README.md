@@ -1,5 +1,5 @@
 # TAKVPS
-Client-only SSH/VPS manager (Flet + asyncssh). No backend; nothing installed on servers.
+**v1.0.0** — Client-only SSH/VPS manager (Flet + asyncssh). No backend; nothing installed on servers.
 
 **Phase 13** added persistent terminal sessions via tmux, a server-side Recycle
 Bin, recursive folder downloads, drag-and-drop uploads (desktop), persistent transfer history,

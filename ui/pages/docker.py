@@ -228,7 +228,7 @@ class DockerView:
     # ---- actions ----
     def _show(self, title: str, body: str) -> None:
         self.page.show_dialog(ft.AlertDialog(
-            title=ft.Text(title, no_wrap=True), scrollable=True,
+                        title=ft.Text(title, no_wrap=True), scrollable=True,
             content=ft.Container(width=380, content=ft.Text(body or "(empty)", font_family="monospace", size=11, selectable=True)),
             actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
 

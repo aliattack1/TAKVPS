@@ -507,6 +507,7 @@ class FileBrowser:
 
         # Use a custom dialog so we can offer both options side by side.
         dlg = ft.AlertDialog(
+            scrollable=True,
             title=ft.Text("Delete?"), modal=True,
             content=ft.Container(width=360, content=ft.Text(body)),
             actions=[
@@ -593,6 +594,7 @@ class FileBrowser:
         if entries:
             actions.insert(0, ft.TextButton("Empty bin", on_click=lambda _: self.page.run_task(self._empty_bin)))
         dlg = ft.AlertDialog(
+            scrollable=True,
             title=ft.Text("Recycle Bin"), modal=True,
             content=ft.Container(width=460, height=min(420, (page.height or 600) - 200), content=col),
             actions=actions)
@@ -940,7 +942,7 @@ class FileBrowser:
         if e.is_dir:
             rows.append(ft.TextButton("Calculate folder size", icon=ft.Icons.CALCULATE, on_click=calc))
         self.page.show_dialog(ft.AlertDialog(
-            title=ft.Text("Properties"), scrollable=True,
+                        title=ft.Text("Properties"), scrollable=True,
             content=ft.Container(width=340, content=ft.Column(rows, tight=True, spacing=theme.SPACE)),
             actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
 
@@ -1000,7 +1002,7 @@ class FileBrowser:
             await self.load(self.cwd)
 
         self.page.show_dialog(ft.AlertDialog(
-            title=ft.Text(f"Permissions · {e.name}"), scrollable=True,
+                        title=ft.Text(f"Permissions · {e.name}"), scrollable=True,
             content=ft.Container(width=340, content=ft.Column(grid + [octal, warn], tight=True)),
             actions=[ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
                      ft.FilledButton("Apply", on_click=apply)]))

@@ -747,7 +747,7 @@ class ChatView:
     async def _preview(self) -> None:
         text, n = await self.ctl.preview()
         self.page.show_dialog(ft.AlertDialog(
-            title=ft.Text("What will be sent"), scrollable=True,
+                        title=ft.Text("What will be sent"), scrollable=True,
             content=ft.Container(width=340, content=ft.Column([
                 ft.Text(f"{n} secret(s) masked before sending." if n else "No secrets detected.", size=12),
                 ft.Text(text, size=11, font_family="monospace", selectable=True)], tight=True)),
@@ -755,6 +755,7 @@ class ChatView:
 
     def _export(self) -> None:
         self.page.show_dialog(ft.AlertDialog(
+            scrollable=True,
             title=ft.Text("Export chat"), content=ft.Column([
                 ft.Text("Long-press to select and copy. This is the unredacted local history.", size=12),
                 ft.TextField(value=export_text(self.ctl.msgs), multiline=True, min_lines=6, max_lines=10,
@@ -775,7 +776,7 @@ class ChatView:
             self.ctl.ctx.store.save()
 
         self.page.show_dialog(ft.AlertDialog(
-            title=ft.Text("Shared context"), scrollable=True,
+                        title=ft.Text("Shared context"), scrollable=True,
             content=ft.Container(width=340, content=ft.Column([
                 ft.Text("Choose what the AI can see alongside your messages. Secrets are always redacted.",
                         size=12),
@@ -822,6 +823,7 @@ def open_profiles(ctx: AppContext, on_change: Optional[Callable[[], None]] = Non
 
     draw()
     page.show_dialog(ft.AlertDialog(
+        scrollable=True,
         title=ft.Text("AI profiles"), content=ft.Container(width=340, height=320, content=col),
         actions=[ft.TextButton("Add profile", icon=ft.Icons.ADD,
                                on_click=lambda _: open_profile_editor(ctx, None, changed)),
@@ -923,7 +925,7 @@ def open_profile_editor(ctx: AppContext, existing: Optional[AIProfile], done: Ca
         done()
 
     page.show_dialog(ft.AlertDialog(
-        title=ft.Text("Edit profile" if existing else "New profile"), scrollable=True,
+                title=ft.Text("Edit profile" if existing else "New profile"), scrollable=True,
         content=ft.Container(width=340, content=ft.Column([
             name, kind, base, key, no_key, model,
             ft.Row([ft.TextButton("Fetch models", icon=ft.Icons.CLOUD_DOWNLOAD, on_click=fetch)]), models_dd,

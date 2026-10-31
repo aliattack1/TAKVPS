@@ -94,15 +94,14 @@ class LineChartSpark:
         except ImportError:                                # pragma: no cover
             self._enabled = False
             return self._fallback.control
-        # We build the chart with an empty series and update `data_series` on
-        # each `set()`. The y-axis range is set on set() too.
+        # Use a fixed height instead of expand=True so the chart renders
+        # properly inside cards/containers that don't have bounded height.
         chart = fc.LineChart(
-            expand=True,
             height=self.height,
-            interactive=False,                             # sparklines don't need tooltips
-            animation=False,                               # avoid the build-up animation on every poll
+            width=float("inf"),       # fill available width
+            interactive=False,
+            animation=False,
             horizontal_grid_lines=fc.ChartGridLines(),
-            # Hide axis labels — the card already shows the current value as text.
             left_axis=fc.ChartAxis(show_labels=False, show_min=False, show_max=False),
             bottom_axis=fc.ChartAxis(show_labels=False, show_min=False, show_max=False),
             min_x=0, max_x=float(self.n - 1),

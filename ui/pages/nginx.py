@@ -122,7 +122,7 @@ class NginxView:
     # ---- helpers ----
     def _show(self, title: str, body: str, error: bool = False) -> None:
         self.page.show_dialog(ft.AlertDialog(
-            title=ft.Text(title, color=ft.Colors.ERROR if error else None, no_wrap=True), scrollable=True,
+                        title=ft.Text(title, color=ft.Colors.ERROR if error else None, no_wrap=True), scrollable=True,
             content=ft.Container(width=380, content=ft.Text(body or "(no output)", font_family="monospace", size=11,
                                                             selectable=True)),
             actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
@@ -273,7 +273,7 @@ class NginxView:
             await self.ctx.editor.open_with(path, text, sudo_write=True, after_save=await self._hook(path, None, site))
 
         page.show_dialog(ft.AlertDialog(
-            title=ft.Text("New site"), scrollable=True,
+                        title=ft.Text("New site"), scrollable=True,
             content=ft.Container(width=340, content=ft.Column([name, server, kind, target,
                 ft.Text("Opens in the editor. After saving, the config is tested and you can roll back if it fails.",
                         size=11, opacity=0.7)], tight=True, spacing=theme.SPACE)),
@@ -321,7 +321,7 @@ class NginxView:
                 await self.load()
 
         page.show_dialog(ft.AlertDialog(
-            title=ft.Text("HTTPS certificate (Let's Encrypt)"), scrollable=True,
+                        title=ft.Text("HTTPS certificate (Let's Encrypt)"), scrollable=True,
             content=ft.Container(width=360, content=ft.Column([
                 ft.Text("Your domains must already point to this server and be reachable on port 80." +
                         ("" if installed else " certbot isn't installed and will be installed first."), size=12),

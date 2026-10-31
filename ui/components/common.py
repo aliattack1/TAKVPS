@@ -63,6 +63,7 @@ def confirm(page: ft.Page, title: str, body: str, on_yes: Callable[[], Awaitable
     if field:
         field.on_change = on_change
     page.show_dialog(ft.AlertDialog(
+        scrollable=True,
         title=ft.Text(title),
         content=ft.Column([ft.Text(body)] + ([field] if field else []), tight=True),
         actions=[ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()), ok]))
