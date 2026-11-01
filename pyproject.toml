@@ -1,6 +1,6 @@
 [project]
 name = "takvps"
-version = "1.0.0"
+version = "1.0.1"
 description = "Client-only SSH / VPS manager"
 requires-python = ">=3.10"
 dependencies = [

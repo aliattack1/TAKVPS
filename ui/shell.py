@@ -54,7 +54,11 @@ from .theme import PHONE_MAX_WIDTH, RADIUS, SPACE
 LIVE_KEYS = ("servers", "overview", "files", "snippets", "services", "cron", "packages", "docker", "nginx", "firewall", "processes", "network", "users", "activity", "fleet", "backups", "tunnels", "diskusage", "health", "databases")   # rebuilt on connection events
 BOTTOM_SLOTS = 4
 PANEL_WIDTH = 400
-FAB_KEYS = ("overview", "monitor", "servers", "tools", "settings")
+FAB_KEYS = ("overview", "monitor", "servers", "tools", "settings", "files", "terminal",
+            "editor", "snippets", "services", "cron", "packages", "docker", "nginx",
+            "logs", "firewall", "processes", "network", "users", "quick", "activity",
+            "fleet", "backups", "alerts", "health", "diskusage", "databases",
+            "tunnels", "envedit", "wireguard", "k8s", "proxy")
 # pages that show a badge count (key → count function name on ctx)
 BADGE_KEYS = {"alerts": "_alert_count", "activity": "_activity_count"}
 
@@ -207,9 +211,13 @@ class Shell:
             self.panel = None if self.panel == "files" else "files"
             self.render()
         else:
-            w, h = self._dialog_size()
+            # On mobile: full-screen file browser dialog
+            w = min((self.page.width or 400) - 16, 600)
+            h = min((self.page.height or 700) - 80, 700)
             browser = FileBrowser(self.ctx, compact=True, on_close=lambda: self.page.pop_dialog())
-            self.page.show_dialog(ft.AlertDialog(content=ft.Container(width=w, height=h, content=browser.control)))
+            self.page.show_dialog(ft.AlertDialog(
+                modal=True,
+                content=ft.Container(width=w, height=h, content=browser.control)))
 
     def _toggle_chat(self, _=None) -> None:
         if self._is_wide() and self.panel == "chat":
@@ -229,10 +237,15 @@ class Shell:
             self.panel = "chat"
             self.render()
         else:
+            # On mobile: open chat as a full-screen dialog so it fills the
+            # available space even when the keyboard is open.
             chat.pending_prefill = prefill
-            w, h = self._dialog_size()
             view = chat.build_view(compact=True, on_close=lambda: self.page.pop_dialog())
-            self.page.show_dialog(ft.AlertDialog(content=ft.Container(width=w, height=h, content=view)))
+            w = min((self.page.width or 400) - 16, 600)
+            h = min((self.page.height or 700) - 80, 700)
+            self.page.show_dialog(ft.AlertDialog(
+                modal=True,
+                content=ft.Container(width=w, height=h, content=view)))
 
     def _close_panel(self) -> None:
         self.panel = None
@@ -242,23 +255,38 @@ class Shell:
         if self.key == "files":
             return None
         title = self.ctx.active.name if self.ctx.active else "TAKVPS"
-        # wrap the topbar buttons in a scrollable Row so they stay
-        # reachable on narrow phones instead of overflowing off-screen.
+        wide = self._is_wide()
         from .components.common import toolbar
         from .page_help import PAGE_HELP
         help_text = PAGE_HELP.get(self.key, "No help available for this page.")
-        return ft.Container(
-            padding=ft.Padding.symmetric(horizontal=SPACE),
-            content=toolbar(
-                ft.Text(title, size=16, weight=ft.FontWeight.W_600, no_wrap=True),
-                ft.IconButton(ft.Icons.SEARCH, tooltip="Search everything", width=44, height=44,
-                              on_click=lambda _: open_palette(self.ctx)),
-                ft.IconButton(ft.Icons.HELP_OUTLINE, tooltip="Help", width=44, height=44,
-                              on_click=lambda _: self._show_help(help_text)),
-                ft.IconButton(ft.Icons.SMART_TOY, tooltip="AI assistant", width=44, height=44,
-                              selected=self.panel == "chat", on_click=self._toggle_chat),
-                ft.IconButton(ft.Icons.FOLDER_OPEN, tooltip="Files", width=44, height=44,
-                              selected=self.panel == "files", on_click=self._toggle_files)))
+        # On mobile: show fewer buttons in the topbar to avoid overflow.
+        # The title text is shorter and buttons are smaller.
+        if wide:
+            return ft.Container(
+                padding=ft.Padding.symmetric(horizontal=SPACE),
+                content=toolbar(
+                    ft.Text(title, size=16, weight=ft.FontWeight.W_600, no_wrap=True),
+                    ft.IconButton(ft.Icons.SEARCH, tooltip="Search everything", width=44, height=44,
+                                  on_click=lambda _: open_palette(self.ctx)),
+                    ft.IconButton(ft.Icons.HELP_OUTLINE, tooltip="Help", width=44, height=44,
+                                  on_click=lambda _: self._show_help(help_text)),
+                    ft.IconButton(ft.Icons.SMART_TOY, tooltip="AI assistant", width=44, height=44,
+                                  selected=self.panel == "chat", on_click=self._toggle_chat),
+                    ft.IconButton(ft.Icons.FOLDER_OPEN, tooltip="Files", width=44, height=44,
+                                  selected=self.panel == "files", on_click=self._toggle_files)))
+        else:
+            # Mobile: compact topbar — just title + AI button (files accessible via Tools)
+            return ft.Container(
+                padding=ft.Padding.symmetric(horizontal=4),
+                content=ft.Row([
+                    ft.Text(title, size=14, weight=ft.FontWeight.W_600, expand=True, no_wrap=True),
+                    ft.IconButton(ft.Icons.SEARCH, tooltip="Search", width=36, height=36,
+                                  on_click=lambda _: open_palette(self.ctx)),
+                    ft.IconButton(ft.Icons.HELP_OUTLINE, tooltip="Help", width=36, height=36,
+                                  on_click=lambda _: self._show_help(help_text)),
+                    ft.IconButton(ft.Icons.FOLDER_OPEN, tooltip="Files", width=36, height=36,
+                                  selected=self.panel == "files", on_click=self._toggle_files),
+                ], spacing=0))
 
     def _show_help(self, text: str) -> None:
         """show a help dialog for the current page."""

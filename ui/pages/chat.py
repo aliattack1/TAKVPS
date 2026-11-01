@@ -503,8 +503,11 @@ class ChatView:
         self.control = ft.Column([
             ft.Row(head, scroll=ft.ScrollMode.AUTO, vertical_alignment=ft.CrossAxisAlignment.CENTER),
             ft.Row([self.profile_dd, self.mode_dd], scroll=ft.ScrollMode.AUTO, spacing=8),
-            self.privacy, self.list, chips, self.usage,
-            ft.Row([self.input, self.send_btn], vertical_alignment=ft.CrossAxisAlignment.END)],
+            self.privacy,
+            ft.Container(self.list, expand=True),
+            chips, self.usage,
+            ft.Row([self.input, self.send_btn], scroll=ft.ScrollMode.AUTO,
+                   vertical_alignment=ft.CrossAxisAlignment.END)],
             expand=True, spacing=6)
         self.refresh_profiles(update=False)
         self.rebuild(update=False)
