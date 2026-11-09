@@ -1,4 +1,4 @@
-"""Part 11 — Conversation branching.
+"""Conversation branching.
 
 Lets the user fork a conversation at any assistant message: everything before
 and including that message is kept, everything after is discarded. The user can

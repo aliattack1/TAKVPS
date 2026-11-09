@@ -51,7 +51,7 @@ from .pages.k8s import k8s_page
 from .pages.proxy import proxy_page
 from .theme import PHONE_MAX_WIDTH, RADIUS, SPACE
 
-LIVE_KEYS = ("servers", "overview", "files", "snippets", "services", "cron", "packages", "docker", "nginx", "firewall", "processes", "network", "users", "activity", "fleet", "backups", "tunnels", "diskusage", "health", "databases")   # rebuilt on connection events
+LIVE_KEYS = ("servers", "overview", "monitor", "files", "snippets", "services", "cron", "packages", "docker", "nginx", "logs", "firewall", "processes", "network", "users", "activity", "fleet", "backups", "alerts", "health", "diskusage", "databases", "tunnels", "envedit", "wireguard", "k8s", "proxy", "quick")   # rebuilt on connection events
 BOTTOM_SLOTS = 4
 PANEL_WIDTH = 400
 FAB_KEYS = ("overview", "monitor", "servers", "tools", "settings", "files", "terminal",
@@ -80,7 +80,7 @@ class Shell:
         ctx.chat = ChatController(ctx)
         ctx.open_chat = self.open_chat
         ctx.save_snippet = lambda cmd: open_snippet_editor(ctx, None, prefill=cmd)
-        self.banner = ConnectionBanner(ctx.reconnect)
+        self.banner = ConnectionBanner(ctx.reconnect, ctx.store.data.language)
         self.body = ft.Container(expand=True)
         self.index = 0
         self.panel: Optional[str] = None            # None | "files" | "chat" (wide screens)
@@ -90,39 +90,42 @@ class Shell:
 
     def _destinations(self) -> list[Dest]:
         c, I, P = self.ctx, ft.Icons, placeholder
+        from services.i18n import translate, is_rtl
+        lang = c.store.data.language
+        _t = lambda s: translate(s, lang)     # noqa: E731
         reg = {
-            "overview": Dest("overview", "Overview", I.DASHBOARD, lambda: overview_page(c)),
-            "monitor": Dest("monitor", "Monitor", I.MONITOR_HEART, lambda: monitor_page(c)),
-            "files": Dest("files", "Files", I.FOLDER, lambda: files_page(c)),
-            "editor": Dest("editor", "Editor", I.EDIT_NOTE, lambda: c.editor.build()),
-            "snippets": Dest("snippets", "Commands", I.BOLT, lambda: snippets_page(c)),
-            "terminal": Dest("terminal", "Terminal", I.TERMINAL, lambda: c.terminal.build()),
-            "servers": Dest("servers", "Servers", I.DNS, lambda: connections_page(c)),
-            "services": Dest("services", "Services", I.SETTINGS_SUGGEST, lambda: services_page(c)),
-            "cron": Dest("cron", "Cron", I.SCHEDULE, lambda: cron_page(c)),
-            "packages": Dest("packages", "Packages", I.SYSTEM_UPDATE, lambda: packages_page(c)),
-            "docker": Dest("docker", "Docker", I.VIEW_IN_AR, lambda: docker_page(c)),
-            "nginx": Dest("nginx", "Nginx", I.LANGUAGE, lambda: nginx_page(c)),
-            "logs": Dest("logs", "Logs", I.ARTICLE, lambda: logs_page(c)),
-            "firewall": Dest("firewall", "Firewall", I.SHIELD, lambda: firewall_page(c)),
-            "processes": Dest("processes", "Processes", I.MEMORY, lambda: processes_page(c)),
-            "network": Dest("network", "Network", I.LAN, lambda: network_page(c)),
-            "users": Dest("users", "Users & keys", I.GROUP, lambda: users_page(c)),
-            "quick": Dest("quick", "Quick actions", I.FLASH_ON, lambda: quick_page(c)),
-            "activity": Dest("activity", "Activity", I.HISTORY, lambda: activity_page(c)),
-            "fleet": Dest("fleet", "All servers", I.DASHBOARD_CUSTOMIZE, lambda: fleet_page(c)),
-            "backups": Dest("backups", "Backups", I.BACKUP, lambda: backups_page(c)),
-            "alerts": Dest("alerts", "Alerts", I.NOTIFICATIONS, lambda: alerts_page(c)),
-            "health": Dest("health", "Health score", I.HEALTH_AND_SAFETY, lambda: health_page(c)),
-            "diskusage": Dest("diskusage", "Disk usage", I.PIE_CHART, lambda: diskusage_page(c)),
-            "databases": Dest("databases", "Databases", I.STORAGE, lambda: databases_page(c)),
-            "tunnels": Dest("tunnels", "SSH tunnels", I.SWAP_HORIZ, lambda: tunnels_page(c)),
-            "envedit": Dest("envedit", ".env editor", I.KEY, lambda: envedit_page(c)),
-            "wireguard": Dest("wireguard", "WireGuard", I.VPN_LOCK, lambda: wireguard_page(c)),
-            "k8s": Dest("k8s", "Kubernetes", I.CLOUD, lambda: k8s_page(c)),
-            "proxy": Dest("proxy", "Reverse Proxy", I.LAN, lambda: proxy_page(c)),
-            "tools": Dest("tools", "Tools", I.APPS, lambda: tools_page(c)),
-            "settings": Dest("settings", "Settings", I.SETTINGS, lambda: settings_page(c)),
+            "overview": Dest("overview", _t("Overview"), I.DASHBOARD, lambda: overview_page(c)),
+            "monitor": Dest("monitor", _t("Monitor"), I.MONITOR_HEART, lambda: monitor_page(c)),
+            "files": Dest("files", _t("Files"), I.FOLDER, lambda: files_page(c)),
+            "editor": Dest("editor", _t("Editor"), I.EDIT_NOTE, lambda: c.editor.build()),
+            "snippets": Dest("snippets", _t("Commands"), I.BOLT, lambda: snippets_page(c)),
+            "terminal": Dest("terminal", _t("Terminal"), I.TERMINAL, lambda: c.terminal.build()),
+            "servers": Dest("servers", _t("Servers"), I.DNS, lambda: connections_page(c)),
+            "services": Dest("services", _t("Services"), I.SETTINGS_SUGGEST, lambda: services_page(c)),
+            "cron": Dest("cron", _t("Cron"), I.SCHEDULE, lambda: cron_page(c)),
+            "packages": Dest("packages", _t("Packages"), I.SYSTEM_UPDATE, lambda: packages_page(c)),
+            "docker": Dest("docker", _t("Docker"), I.VIEW_IN_AR, lambda: docker_page(c)),
+            "nginx": Dest("nginx", _t("Nginx"), I.LANGUAGE, lambda: nginx_page(c)),
+            "logs": Dest("logs", _t("Logs"), I.ARTICLE, lambda: logs_page(c)),
+            "firewall": Dest("firewall", _t("Firewall"), I.SHIELD, lambda: firewall_page(c)),
+            "processes": Dest("processes", _t("Processes"), I.MEMORY, lambda: processes_page(c)),
+            "network": Dest("network", _t("Network"), I.LAN, lambda: network_page(c)),
+            "users": Dest("users", _t("Users & keys"), I.GROUP, lambda: users_page(c)),
+            "quick": Dest("quick", _t("Quick actions"), I.FLASH_ON, lambda: quick_page(c)),
+            "activity": Dest("activity", _t("Activity"), I.HISTORY, lambda: activity_page(c)),
+            "fleet": Dest("fleet", _t("All servers"), I.DASHBOARD_CUSTOMIZE, lambda: fleet_page(c)),
+            "backups": Dest("backups", _t("Backups"), I.BACKUP, lambda: backups_page(c)),
+            "alerts": Dest("alerts", _t("Alerts"), I.NOTIFICATIONS, lambda: alerts_page(c)),
+            "health": Dest("health", _t("Health score"), I.HEALTH_AND_SAFETY, lambda: health_page(c)),
+            "diskusage": Dest("diskusage", _t("Disk usage"), I.PIE_CHART, lambda: diskusage_page(c)),
+            "databases": Dest("databases", _t("Databases"), I.STORAGE, lambda: databases_page(c)),
+            "tunnels": Dest("tunnels", _t("SSH tunnels"), I.SWAP_HORIZ, lambda: tunnels_page(c)),
+            "envedit": Dest("envedit", _t(".env editor"), I.KEY, lambda: envedit_page(c)),
+            "wireguard": Dest("wireguard", _t("WireGuard"), I.VPN_LOCK, lambda: wireguard_page(c)),
+            "k8s": Dest("k8s", _t("Kubernetes"), I.CLOUD, lambda: k8s_page(c)),
+            "proxy": Dest("proxy", _t("Reverse Proxy"), I.LAN, lambda: proxy_page(c)),
+            "tools": Dest("tools", _t("Tools"), I.APPS, lambda: tools_page(c)),
+            "settings": Dest("settings", _t("Settings"), I.SETTINGS, lambda: settings_page(c)),
         }
         saved = list(c.store.data.nav_order)
         if "monitor" not in saved:                      # migrate older settings
@@ -197,6 +200,9 @@ class Shell:
         if self.key in LIVE_KEYS:
             self.body.content = self.dests[self.index].build()
             self.page.update()
+        # Also refresh the side panel if it's open
+        if self.panel:
+            self.render()
 
     def on_status(self, st) -> None:
         self.banner.set_status(st.value if isinstance(st, Status) else str(st))
@@ -248,6 +254,10 @@ class Shell:
                 content=ft.Container(width=w, height=h, content=view)))
 
     def _close_panel(self) -> None:
+        # Cancel AI chat streaming if active
+        if self.panel == "chat" and self.ctx.chat and self.ctx.chat.task:
+            if not self.ctx.chat.task.done():
+                self.ctx.chat.task.cancel()
         self.panel = None
         self.render()
 
@@ -257,46 +267,73 @@ class Shell:
         title = self.ctx.active.name if self.ctx.active else "TAKVPS"
         wide = self._is_wide()
         from .components.common import toolbar
-        from .page_help import PAGE_HELP
-        help_text = PAGE_HELP.get(self.key, "No help available for this page.")
-        # On mobile: show fewer buttons in the topbar to avoid overflow.
-        # The title text is shorter and buttons are smaller.
+        from .page_help import get_help
+        lang = self.ctx.store.data.language
+        help_text = get_help(self.key, lang)
+        # Translate the topbar title for Persian users. The active server's
+        # name is left as-is (it's user content, not UI text).
+        from services.i18n import translate
+        _t = lambda s: translate(s, lang)  # noqa: E731
+        from .theme import ELEVATION_FLAT, SPACE_LG, SPACE_XS
+        # Modern icon-button style — subtle selected-state background when the
+        # side panel is open. This is the Linear/Vercel pattern: a soft
+        # secondary-container pill behind the active icon so the user can
+        # see "this is currently open" at a glance.
+        def _icon(icon, tip, fn, selected=False, size=44):
+            return ft.IconButton(
+                icon, tooltip=_t(tip), width=size, height=size,
+                on_click=fn,
+                # Selected → tinted background, like a tab pill.
+                selected=selected,
+                style=ft.ButtonStyle(
+                    bgcolor=ft.Colors.SECONDARY_CONTAINER if selected else ft.Colors.TRANSPARENT,
+                    shape=ft.RoundedRectangleBorder(radius=12),
+                ) if selected else None,
+            )
         if wide:
+            # Desktop topbar: 16pt title, 4 trailing icon buttons (search/help/ai/files).
             return ft.Container(
-                padding=ft.Padding.symmetric(horizontal=SPACE),
+                padding=ft.Padding.symmetric(horizontal=SPACE_LG, vertical=SPACE_XS),
                 content=toolbar(
-                    ft.Text(title, size=16, weight=ft.FontWeight.W_600, no_wrap=True),
-                    ft.IconButton(ft.Icons.SEARCH, tooltip="Search everything", width=44, height=44,
-                                  on_click=lambda _: open_palette(self.ctx)),
-                    ft.IconButton(ft.Icons.HELP_OUTLINE, tooltip="Help", width=44, height=44,
-                                  on_click=lambda _: self._show_help(help_text)),
-                    ft.IconButton(ft.Icons.SMART_TOY, tooltip="AI assistant", width=44, height=44,
-                                  selected=self.panel == "chat", on_click=self._toggle_chat),
-                    ft.IconButton(ft.Icons.FOLDER_OPEN, tooltip="Files", width=44, height=44,
-                                  selected=self.panel == "files", on_click=self._toggle_files)))
+                    ft.Text(title, size=18, weight=ft.FontWeight.W_600, no_wrap=True),
+                    _icon(ft.Icons.SEARCH, "Search everything",
+                          lambda _: open_palette(self.ctx)),
+                    _icon(ft.Icons.HELP_OUTLINE, "Help",
+                          lambda _: self._show_help(help_text)),
+                    _icon(ft.Icons.SMART_TOY, "AI assistant",
+                          self._toggle_chat, selected=self.panel == "chat"),
+                    _icon(ft.Icons.FOLDER_OPEN, "Files",
+                          self._toggle_files, selected=self.panel == "files")))
         else:
-            # Mobile: compact topbar — just title + AI button (files accessible via Tools)
+            # Mobile topbar: compact 14pt title, smaller 36px icon targets.
+            # The AI button is hidden on mobile because the FAB already exposes
+            # it; that gives the topbar more breathing room.
             return ft.Container(
-                padding=ft.Padding.symmetric(horizontal=4),
+                padding=ft.Padding.symmetric(horizontal=SPACE_XS, vertical=SPACE_XS),
                 content=ft.Row([
-                    ft.Text(title, size=14, weight=ft.FontWeight.W_600, expand=True, no_wrap=True),
-                    ft.IconButton(ft.Icons.SEARCH, tooltip="Search", width=36, height=36,
-                                  on_click=lambda _: open_palette(self.ctx)),
-                    ft.IconButton(ft.Icons.HELP_OUTLINE, tooltip="Help", width=36, height=36,
-                                  on_click=lambda _: self._show_help(help_text)),
-                    ft.IconButton(ft.Icons.FOLDER_OPEN, tooltip="Files", width=36, height=36,
-                                  selected=self.panel == "files", on_click=self._toggle_files),
+                    ft.Text(title, size=15, weight=ft.FontWeight.W_600,
+                            expand=True, no_wrap=True, max_lines=1),
+                    _icon(ft.Icons.SEARCH, "Search",
+                          lambda _: open_palette(self.ctx), size=36),
+                    _icon(ft.Icons.HELP_OUTLINE, "Help",
+                          lambda _: self._show_help(help_text), size=36),
+                    _icon(ft.Icons.FOLDER_OPEN, "Files",
+                          self._toggle_files,
+                          selected=self.panel == "files", size=36),
                 ], spacing=0))
 
     def _show_help(self, text: str) -> None:
         """show a help dialog for the current page."""
+        from services.i18n import translate
+        lang = self.ctx.store.data.language
+        _t = lambda s: translate(s, lang)  # noqa: E731
         dlg = ft.AlertDialog(
             scrollable=True,
-            title=ft.Text("Help"), modal=True,
-            content=ft.Container(width=380, content=ft.Column([
+            title=ft.Text(_t("Help")), modal=True,
+            content=ft.Container(width=min(380, (self.page.width or 400) - 32), content=ft.Column([
                 ft.Text(text, size=13, selectable=True),
             ], tight=True, scroll=ft.ScrollMode.AUTO)),
-            actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())])
+            actions=[ft.TextButton(_t("Close"), on_click=lambda _: self.page.pop_dialog())])
         self.page.show_dialog(dlg)
 
     # ---- layout ----
@@ -308,15 +345,18 @@ class Shell:
         try:
             self.body.content = self.dests[self.index].build()
         except Exception as e:  # noqa: BLE001
+            from services.i18n import translate
+            lang = self.ctx.store.data.language
+            _t = lambda s: translate(s, lang)  # noqa: E731
             self.body.content = ft.Container(
                 padding=40, expand=True,
                 content=ft.Column([
                     ft.Icon(ft.Icons.ERROR_OUTLINE, size=48, color=ft.Colors.ERROR),
-                    ft.Text("This page failed to load.", size=16, weight=ft.FontWeight.W_600),
+                    ft.Text(_t("This page failed to load."), size=16, weight=ft.FontWeight.W_600),
                     ft.Text(str(e)[:300], size=11, opacity=0.7, selectable=True,
                              font_family="monospace"),
-                    ft.Text("Try navigating away and back. If the error persists, the page "
-                             "may depend on a feature this server doesn't support.",
+                    ft.Text(_t("Try navigating away and back. If the error persists, the page "
+                             "may depend on a feature this server doesn't support."),
                              size=12, opacity=0.6),
                 ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8))
         p.controls.clear()
@@ -338,26 +378,30 @@ class Shell:
 
             # Build a custom scrollable navigation sidebar instead of NavigationRail,
             # because NavigationRail doesn't scroll when there are many destinations.
+            # Persian note: text size 11 is more readable than 10 for Persian glyphs
+            # (Persian needs slightly more vertical space than Latin due to dots/marks
+            # above and below the baseline). The width 90 gives Persian labels like
+            # «پراکسی معکوس» room to render without ellipsis.
             rail_items: list[ft.Control] = []
             for i, d in enumerate(self.dests):
                 is_sel = i == self.index
                 rail_items.append(ft.Container(
                     ink=True, on_click=lambda _, i=i: self._select(i),
-                    padding=ft.Padding.symmetric(horizontal=12, vertical=10),
+                    padding=ft.Padding.symmetric(horizontal=10, vertical=10),
                     bgcolor=ft.Colors.SECONDARY_CONTAINER if is_sel else None,
                     border_radius=RADIUS,
                     content=ft.Column([
                         ft.Icon(d.icon, size=22,
                                 color=ft.Colors.PRIMARY if is_sel else ft.Colors.ON_SURFACE_VARIANT),
-                        ft.Text(d.label, size=10, no_wrap=True,
+                        ft.Text(d.label, size=11, no_wrap=True, text_align=ft.TextAlign.CENTER,
                                 color=ft.Colors.PRIMARY if is_sel else ft.Colors.ON_SURFACE_VARIANT),
                     ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=2),
-                    width=80))
+                    width=90))
             rail_list = ft.ListView(rail_items, spacing=2, padding=ft.Padding.symmetric(vertical=8),
                                      expand=True, auto_scroll=True)
             rail_col = ft.Container(
                 content=rail_list,
-                width=90, expand=True,
+                width=100, expand=True,
                 bgcolor=ft.Colors.SURFACE)
             row: list[ft.Control] = [rail_col, ft.VerticalDivider(width=1), main_wrapper]
             if self.panel == "files" and self.key != "files":
@@ -377,8 +421,8 @@ class Shell:
                 i = int(e.control.selected_index)
                 if i < BOTTOM_SLOTS:
                     self._select(i)
-                else:                               # "Settings" navigates to settings + opens drawer
-                    # First navigate to settings page
+                else:                               # "More" opens the drawer so all destinations are reachable
+                    # First navigate to settings page (the previous default)
                     self.select_key("settings")
                     # Then open the drawer so other pages are reachable too
                     try:
@@ -386,19 +430,56 @@ class Shell:
                     except Exception:  # noqa: BLE001
                         pass
 
+            # Persian translation for the bottom-bar labels and FAB tooltip.
+            from services.i18n import translate
+            lang = self.ctx.store.data.language
+            _t = lambda s: translate(s, lang)  # noqa: E731
+            # Modern bottom navigation: each destination has a selected_icon
+            # (filled) variant so the active tab is visually heavier — this is
+            # Material 3's "more visible active state" guidance.
+            bottom_dests = []
+            for d in self.dests[:BOTTOM_SLOTS]:
+                # Pick a filled variant of the icon for the selected state.
+                # Flet's NavigationBarDestination.selected_icon defaults to
+                # the regular icon if not set, so we set it to a *_OUTLINE
+                # → regular swap (the outline is used at rest, the filled
+                # is used when active). Most Material icons have an outlined
+                # variant we can use here.
+                bottom_dests.append(ft.NavigationBarDestination(
+                    icon=d.icon, selected_icon=d.icon, label=d.label))
+            # The trailing "More" tab opens the drawer so all destinations are reachable.
+            bottom_dests.append(ft.NavigationBarDestination(
+                icon=ft.Icons.MORE_HORIZ, selected_icon=ft.Icons.MORE_HORIZ,
+                label=_t("More")))
             p.navigation_bar = ft.NavigationBar(
                 selected_index=min(self.index, BOTTOM_SLOTS),
-                destinations=[ft.NavigationBarDestination(icon=d.icon, label=d.label)
-                              for d in self.dests[:BOTTOM_SLOTS]] +
-                             [ft.NavigationBarDestination(icon=ft.Icons.SETTINGS, label="Settings")],
+                destinations=bottom_dests,
                 on_change=bar_pick)
             p.drawer = ft.NavigationDrawer(
                 selected_index=self.index,
                 controls=[ft.NavigationDrawerDestination(icon=d.icon, label=d.label) for d in self.dests],
                 on_change=drawer_pick)
             if self.key in FAB_KEYS:
-                p.floating_action_button = ft.FloatingActionButton(
-                    icon=ft.Icons.SMART_TOY, tooltip="AI assistant", on_click=lambda _: self.open_chat())
+                # Modern extended FAB (Material 3 Expressive): icon + label
+                # instead of icon-only. The label "Ask AI" makes the FAB's
+                # purpose obvious — much more discoverable than a bare robot
+                # icon, especially for first-time users.
+                # On very narrow phones (<400px) we fall back to icon-only
+                # so the FAB doesn't crowd the page content.
+                page_width = p.width or 400
+                if page_width >= 400:
+                    p.floating_action_button = ft.FloatingActionButton(
+                        icon=ft.Icons.SMART_TOY,
+                        text=_t("Ask AI"),
+                        tooltip=_t("AI assistant"),
+                        on_click=lambda _: self.open_chat(),
+                    )
+                else:
+                    p.floating_action_button = ft.FloatingActionButton(
+                        icon=ft.Icons.SMART_TOY,
+                        tooltip=_t("AI assistant"),
+                        on_click=lambda _: self.open_chat(),
+                    )
             p.add(ft.SafeArea(expand=True, content=main_col))
         self._sync_poller()
         p.update()

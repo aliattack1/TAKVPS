@@ -1,6 +1,6 @@
-"""Native tool-calling adapters .
+"""Native tool-calling adapters.
 
-Phase 7's "structured fallback" asked the model to emit `bash` blocks and parsed
+The "structured fallback" asked the model to emit `bash` blocks and parsed
 them with regex; that worked with every provider but lost the structured
 tool-call protocol that OpenAI/Anthropic/Gemini natively support.
 

@@ -15,6 +15,7 @@ from services.ai.chat import (MODES, ContextOptions, Msg, build_context, build_s
 from services.ai.providers import DEFAULT_URLS, KINDS, ProviderError
 from services.ai.tools import (ToolCall, extract_command, supports_tools, tool_result_message,
                                validate_command_safety)
+from services.i18n import translate
 from services.redact import redact
 from services.risk import classify
 from storage.ai_profiles import AIProfile
@@ -191,7 +192,7 @@ class ChatController:
                         cmd, sudo = extract_command(call)
                         if not cmd:
                             continue
-                        self._note(f"Step {steps}/{self.s.ai_step_limit}: {cmd.splitlines()[0][:80]}")
+                        self._note(f"Step {steps}/{self.s.ai_step_limit}: {(cmd.splitlines()[0][:80] if cmd.splitlines() else cmd[:80])}")
                         if not await self.gate(cmd, auto_safe=self.mode == "agent"):
                             declined = "The user declined to run this command."
                             self._add(Msg("result", declined, cmd=cmd, exit=None, ai=True))
@@ -224,7 +225,7 @@ class ChatController:
                 if steps > self.s.ai_step_limit:
                     self._note(f"Stopped: reached the {self.s.ai_step_limit}-step limit.")
                     break
-                self._note(f"Step {steps}/{self.s.ai_step_limit}: {cmd.splitlines()[0][:80]}")
+                self._note(f"Step {steps}/{self.s.ai_step_limit}: {(cmd.splitlines()[0][:80] if cmd.splitlines() else cmd[:80])}")
                 if not await self.gate(cmd, auto_safe=self.mode == "agent"):
                     self._add(Msg("result", "The user declined to run this command.", cmd=cmd, exit=None, ai=True))
                     break
@@ -472,33 +473,37 @@ class ChatController:
 class ChatView:
     def __init__(self, ctl: ChatController, compact: bool, on_close: Optional[Callable[[], None]]) -> None:
         self.ctl, self.page, self.compact, self.on_close = ctl, ctl.page, compact, on_close
+        # Persian translation helper.
+        self._lang = ctl.ctx.store.data.language
+        self._t = lambda s: translate(s, self._lang)  # noqa: E731
         self.widgets: dict[int, ft.Container] = {}
         self._pending: set[int] = set()
         self.list = ft.ListView(expand=True, spacing=10, auto_scroll=True, padding=8)
         self.privacy = ft.Text("", size=11, opacity=0.7)
         self.usage = ft.Text("", size=11, opacity=0.6)
-        self.input = ft.TextField(hint_text="Ask about your server…", multiline=True, min_lines=1, max_lines=4,
+        self.input = ft.TextField(hint_text=self._t("Ask about your server…"), multiline=True, min_lines=1, max_lines=4,
                                   expand=True, border_radius=12)
         self.send_btn = ft.IconButton(ft.Icons.SEND, on_click=lambda _: self._send(), width=48, height=48)
-        self.profile_dd = ft.Dropdown(expand=True, on_select=self._on_profile, label="Model profile")
-        self.mode_dd = ft.Dropdown(expand=True, label="Mode", value=ctl.mode, on_select=self._on_mode,
+        self.profile_dd = ft.Dropdown(expand=True, on_select=self._on_profile, label=self._t("Model profile"))
+        self.mode_dd = ft.Dropdown(expand=True, label=self._t("Mode"), value=ctl.mode, on_select=self._on_mode,
                                    options=[ft.DropdownOption(key=k, text=v) for k, v in MODES.items()])
 
         menu = ft.PopupMenuButton(items=[
-            ft.PopupMenuItem(content=ft.Text("What will be sent?"), icon=ft.Icons.VISIBILITY,
+            ft.PopupMenuItem(content=ft.Text(self._t("What will be sent?")), icon=ft.Icons.VISIBILITY,
                              on_click=lambda _: self.page.run_task(self._preview)),
-            ft.PopupMenuItem(content=ft.Text("Shared context…"), icon=ft.Icons.TUNE,
+            ft.PopupMenuItem(content=ft.Text(self._t("Shared context…")), icon=ft.Icons.TUNE,
                              on_click=lambda _: self._context_dialog()),
-            ft.PopupMenuItem(content=ft.Text("AI profiles…"), icon=ft.Icons.SMART_TOY,
+            ft.PopupMenuItem(content=ft.Text(self._t("AI profiles…")), icon=ft.Icons.SMART_TOY,
                              on_click=lambda _: open_profiles(ctl.ctx, self.refresh_profiles)),
-            ft.PopupMenuItem(content=ft.Text("Export chat"), icon=ft.Icons.IOS_SHARE,
+            ft.PopupMenuItem(content=ft.Text(self._t("Export chat")), icon=ft.Icons.IOS_SHARE,
                              on_click=lambda _: self._export()),
-            ft.PopupMenuItem(content=ft.Text("Clear chat"), icon=ft.Icons.DELETE_SWEEP,
+            ft.PopupMenuItem(content=ft.Text(self._t("Clear chat")), icon=ft.Icons.DELETE_SWEEP,
                              on_click=lambda _: ctl.clear())])
-        head = [ft.Text("AI assistant", size=16, weight=ft.FontWeight.W_600, expand=True), menu]
+        head = [ft.Text(self._t("AI assistant"), size=16, weight=ft.FontWeight.W_600, expand=True), menu]
         if compact and on_close:
-            head.append(ft.IconButton(ft.Icons.CLOSE, width=44, height=44, on_click=lambda _: on_close()))
-        chips = ft.Row([ft.TextButton(label, on_click=lambda _, p=prompt: self.page.run_task(ctl.quick, p))
+            head.append(ft.IconButton(ft.Icons.CLOSE, tooltip=self._t("Close"), width=44, height=44,
+                                      on_click=lambda _: on_close()))
+        chips = ft.Row([ft.TextButton(self._t(label), on_click=lambda _, p=prompt: self.page.run_task(ctl.quick, p))
                         for label, prompt in QUICK], scroll=ft.ScrollMode.AUTO, spacing=0)
         self.control = ft.Column([
             ft.Row(head, scroll=ft.ScrollMode.AUTO, vertical_alignment=ft.CrossAxisAlignment.CENTER),
@@ -523,13 +528,14 @@ class ChatView:
         cur = ctl.profile()
         self.profile_dd.value = cur.id if cur else None
         if cur is None:
-            self.privacy.value = "No AI profile yet — open the menu → AI profiles… to add one."
+            self.privacy.value = self._t("No AI profile yet — open the menu → AI profiles… to add one.")
         elif is_local_url(cur.base_url):
-            self.privacy.value = "Local model: your messages stay on your network."
+            self.privacy.value = self._t("Local model: your messages stay on your network.")
         else:
             host = urlparse(cur.base_url or DEFAULT_URLS[cur.kind]).netloc
-            self.privacy.value = (f"Cloud provider ({host}) receives your messages and any shared context "
-                                  "such as terminal output. Secrets are redacted first.")
+            self.privacy.value = self._t(
+                "Cloud provider ({host}) receives your messages and any shared context "
+                "such as terminal output. Secrets are redacted first.").format(host=host)
         if update:
             self.page.update()
 
@@ -733,7 +739,7 @@ class ChatView:
 
     def set_running(self, running: bool, update: bool = True) -> None:
         self.send_btn.icon = ft.Icons.STOP_CIRCLE if running else ft.Icons.SEND
-        self.send_btn.tooltip = "Stop" if running else "Send"
+        self.send_btn.tooltip = self._t("Stop") if running else self._t("Send")
         self.send_btn.on_click = (lambda _: self.ctl.stop()) if running else (lambda _: self._send())
         if update:
             self.page.update()

@@ -1,4 +1,4 @@
-"""Recycle Bin for deleted files .
+"""Recycle Bin for deleted files.
 
 Instead of permanently deleting files, move them to a per-server recycle bin
 directory on the server itself (so a recycled file survives even if the phone

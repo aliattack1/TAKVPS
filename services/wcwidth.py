@@ -1,7 +1,7 @@
-"""Part 3 — Wide-character width lookup for the terminal emulator.
+"""Wide-character width lookup for the terminal emulator.
 
 Real terminals (xterm, vim, htop) render East-Asian wide characters (CJK
-ideographs, full-width Latin, most emoji) as **two cells** wide. Phase 6's
+ideographs, full-width Latin, most emoji) as **two cells** wide. The earlier
 emulator treated every character as one cell, so `vim` and `htop` misaligned
 the moment a CJK character appeared.
 

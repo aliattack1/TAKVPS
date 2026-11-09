@@ -134,7 +134,7 @@ class K8sView:
             text = e.message
         self.page.show_dialog(ft.AlertDialog(
                         title=ft.Text(f"Logs: {pod.name}"), modal=True, scrollable=True,
-            content=ft.Container(width=420, height=min(400, (page.height or 600) - 200), content=ft.Column([
+            content=ft.Container(width=min(420, (page.width or 400) - 32), height=min(400, (page.height or 600) - 200), content=ft.Column([
                 ft.Text(text, font_family="monospace", size=10, selectable=True, no_wrap=False),
             ], scroll=ft.ScrollMode.AUTO, tight=True)),
             actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))

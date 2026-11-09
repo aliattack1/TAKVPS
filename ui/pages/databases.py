@@ -237,14 +237,14 @@ class DatabasesView:
     async def structure(self) -> None:
         res = await self.q(D.sql_describe(self.engine, self.db, self.table), self.db if self.engine != "sqlite" else "")
         self.page.show_dialog(ft.AlertDialog(title=ft.Text(self.table), scrollable=True,
-                                             content=ft.Container(width=380, content=result_grid(res)),
+                                             content=ft.Container(width=min(380, (page.width or 400) - 32), content=result_grid(res)),
                                              actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
 
     async def redis_key(self, key: str) -> None:
         t = await self.qr(["TYPE", key], 5)
         r = await self.qr(D.redis_inspect_args(key, t.text.strip()), 100)
         self.page.show_dialog(ft.AlertDialog(title=ft.Text(key, no_wrap=True), scrollable=True,
-                                             content=ft.Container(width=380, content=ft.Column([
+                                             content=ft.Container(width=min(380, (page.width or 400) - 32), content=ft.Column([
                                                  ft.Text(f"type: {t.text.strip()}", size=11, opacity=0.7), result_grid(r)], tight=True)),
                                              actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
 
@@ -284,7 +284,7 @@ class DatabasesView:
     # ---- dumps ----
     @property
     def dump_dir(self) -> str:
-        return posixpath.join(self.ctx.ssh.home or "/root", "takvps-backups", "db")
+        return posixpath.join(self.ctx.ssh.home if self.ctx.ssh.status.value == "connected" else "/root", "takvps-backups", "db")
 
     async def _list_dumps(self) -> None:
         try:

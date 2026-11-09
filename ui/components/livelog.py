@@ -85,7 +85,7 @@ async def open_live_tail(ctx, title: str, cmd: str, sudo: bool = False) -> None:
 
     page.show_dialog(ft.AlertDialog(
         modal=True, title=ft.Text(title, no_wrap=True),
-        content=ft.Container(width=380, height=440, content=ft.Column([
+        content=ft.Container(width=min(380, (page.width or 400) - 32), height=440, content=ft.Column([
             ft.Row([flt, pause, ft.IconButton(ft.Icons.COPY, tooltip="Copy", width=44, height=44,
                                               on_click=lambda _: page.run_task(ctx.terminal.copy_text, "\n".join(lines)))]),
             status, ft.Container(lst, expand=True, padding=8, border_radius=8,

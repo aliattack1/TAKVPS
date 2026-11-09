@@ -7,7 +7,7 @@ from services.ai.chat import MODES
 from storage.settings import default_download_dir
 from storage.vault import VaultError
 from .. import theme
-from ..components.common import toast
+from ..components.common import confirm, toast
 from ..context import AppContext
 from .chat import open_profiles
 
@@ -18,8 +18,17 @@ def settings_page(ctx: AppContext) -> ft.Control:
 
     def apply_and_save():
         store.save()
-        theme.apply(page, s.theme_mode, s.preset, s.accent)
-        page.update()
+        theme.apply(page, s.theme_mode, s.preset, s.accent, s.language)
+        # Force a full re-render so the navigation rail, drawer, and FAB get
+        # rebuilt with the new language/RTL direction. Without this, switching
+        # to Persian leaves the previously-rendered controls in LTR.
+        try:
+            from ..shell import Shell  # local import to avoid circular
+            shell = getattr(page, "_takvps_shell", None)
+            if shell is not None:
+                shell.render()
+        except Exception:  # noqa: BLE001
+            page.update()
 
     def set_mode(e):
         s.theme_mode = list(e.control.selected)[0]
@@ -167,99 +176,119 @@ def settings_page(ctx: AppContext) -> ft.Control:
     swatches = ft.Row(wrap=True, controls=[
         ft.Container(width=44, height=44, border_radius=22, bgcolor=c, data=c, on_click=set_accent)
         for c in ["#3B82F6", "#22C55E", "#EF4444", "#F59E0B", "#A855F7", "#14B8A6"]])
-    h = lambda t: ft.Text(t, size=18, weight=ft.FontWeight.W_600)  # noqa: E731
+
+    # Persian translation helper for section headers and switch labels.
+    from services.i18n import translate
+    lang = s.language
+    _t = lambda t: translate(t, lang)  # noqa: E731
+    h = lambda t: ft.Text(_t(t), size=18, weight=ft.FontWeight.W_600)  # noqa: E731
 
     return ft.ListView(padding=theme.SPACE, spacing=theme.SPACE, controls=[
         h("Appearance"),
+        ft.Dropdown(label="Language / زبان", value=s.language,
+                    on_select=lambda e: (setattr(s, "language", e.control.value), apply_and_save()),
+                    options=[ft.DropdownOption(key="en", text="English"),
+                             ft.DropdownOption(key="fa", text="فارسی (Persian)")]),
         ft.SegmentedButton(selected=[s.theme_mode], on_change=set_mode,
-                           segments=[ft.Segment(value=v, label=ft.Text(v.title()))
+                           segments=[ft.Segment(value=v, label=ft.Text(_t(v.title())))
                                      for v in ("light", "dark", "system")]),
-        ft.Dropdown(label="Preset theme", value=s.preset, on_select=set_preset,
+        ft.Dropdown(label=_t("Preset theme"), value=s.preset, on_select=set_preset,
                     options=[ft.DropdownOption(key=k, text=k.title()) for k in theme.PRESETS]),
-        ft.Text("Accent color"), swatches,
+        ft.Text(_t("Accent color")), swatches,
         ft.Divider(), h("Monitoring"),
-        ft.Dropdown(label="Refresh interval", value=str(int(s.monitor_interval)) if s.monitor_interval == int(s.monitor_interval) else str(s.monitor_interval),
+        ft.Dropdown(label=_t("Refresh interval"), value=str(int(s.monitor_interval)) if s.monitor_interval == int(s.monitor_interval) else str(s.monitor_interval),
                     on_select=set_interval,
                     options=[ft.DropdownOption(key=k, text=f"{k} s") for k in ("1", "2", "5", "10", "30")]),
-        thr_slider("CPU", "thr_cpu"), thr_slider("RAM", "thr_ram"), thr_slider("Disk", "thr_disk"),
-        ft.Switch(label="Use line charts", value=s.monitor_line_charts, on_change=set_line_charts),
-        ft.Text("Real `flet-charts.LineChart` sparklines in the Monitor instead of the bar fallback. "
-                "Falls back automatically when the package isn't installed.",
+        thr_slider(_t("CPU"), "thr_cpu"), thr_slider(_t("RAM"), "thr_ram"), thr_slider(_t("Disk"), "thr_disk"),
+        ft.Switch(label=_t("Use line charts"), value=s.monitor_line_charts, on_change=set_line_charts),
+        ft.Text(_t("Real `flet-charts.LineChart` sparklines in the Monitor instead of the bar fallback. "
+                "Falls back automatically when the package isn't installed."),
                 size=12, opacity=0.7),
-        ft.Text("Polling runs only while the Monitor page is open.", size=12, opacity=0.7),
-        ft.TextField(label="Fleet concurrency (1–16)", value=str(s.fleet_concurrency), width=160,
+        ft.Text(_t("Polling runs only while the Monitor page is open."), size=12, opacity=0.7),
+        ft.TextField(label=_t("Fleet concurrency (1–16)"), value=str(s.fleet_concurrency), width=160,
                      keyboard_type=ft.KeyboardType.NUMBER, on_change=lambda e: _set_fleet_conc(e, s, store)),
-        ft.Text("Max parallel SSH connections when probing or running commands across all servers. "
-                "Lower this on devices with low file-descriptor limits.", size=12, opacity=0.7),
+        ft.Text(_t("Max parallel SSH connections when probing or running commands across all servers. "
+                "Lower this on devices with low file-descriptor limits."), size=12, opacity=0.7),
         ft.Divider(), h("Files"),
-        ft.Switch(label="Show hidden files", value=s.files_hidden, on_change=set_hidden),
-        ft.TextField(label="Download folder", value=s.download_dir, hint_text=str(default_download_dir()),
+        ft.Switch(label=_t("Show hidden files"), value=s.files_hidden, on_change=set_hidden),
+        ft.TextField(label=_t("Download folder"), value=s.download_dir, hint_text=str(default_download_dir()),
                      on_change=set_dl_dir),
-        ft.Text("Leave empty for the default. On Android the default is the app's private storage; "
-                "use “Save a copy…” in Transfers to put a file somewhere visible.", size=12, opacity=0.7),
+        ft.Text(_t("Leave empty for the default. On Android the default is the app's private storage; "
+                "use “Save a copy…” in Transfers to put a file somewhere visible."), size=12, opacity=0.7),
         ft.Divider(), h("AI assistant"),
-        ft.FilledTonalButton("AI profiles…", icon=ft.Icons.SMART_TOY, on_click=lambda _: open_profiles(ctx)),
-        ft.Dropdown(label="Default mode", value=s.ai_default_mode, on_select=set_ai_mode,
+        ft.FilledTonalButton(_t("AI profiles…"), icon=ft.Icons.SMART_TOY, on_click=lambda _: open_profiles(ctx)),
+        ft.Dropdown(label=_t("Default mode"), value=s.ai_default_mode, on_select=set_ai_mode,
                     options=[ft.DropdownOption(key=k, text=v) for k, v in MODES.items()]),
-        ft.TextField(label="Agent step limit", value=str(s.ai_step_limit), width=160,
+        ft.TextField(label=_t("Agent step limit"), value=str(s.ai_step_limit), width=160,
                      keyboard_type=ft.KeyboardType.NUMBER, on_change=set_ai_steps),
-        ft.Switch(label="Native tool-calling", value=s.ai_native_tools, on_change=set_ai_native_tools),
-        ft.Switch(label="Show raw tool calls", value=s.ai_show_tool_calls, on_change=set_ai_show_tool_calls),
-        ft.Switch(label="Prefer local model", value=s.ai_prefer_local, on_change=set_ai_prefer_local),
-        ft.Text("When on, the assistant prefers a local model (Ollama / LM Studio / vLLM on your "
+        ft.Switch(label=_t("Native tool-calling"), value=s.ai_native_tools, on_change=set_ai_native_tools),
+        ft.Switch(label=_t("Show raw tool calls"), value=s.ai_show_tool_calls, on_change=set_ai_show_tool_calls),
+        ft.Switch(label=_t("Prefer local model"), value=s.ai_prefer_local, on_change=set_ai_prefer_local),
+        ft.Text(_t("When on, the assistant prefers a local model (Ollama / LM Studio / vLLM on your "
                 "LAN) over a cloud provider when both are configured. Falls back to cloud when no "
-                "local profile exists.", size=12, opacity=0.7),
-        ft.Text("When on, assistant messages that used native tool-calling show a collapsible "
+                "local profile exists."), size=12, opacity=0.7),
+        ft.Text(_t("When on, assistant messages that used native tool-calling show a collapsible "
                 "block with the exact tool-call payloads (function name, args, and the result), "
-                "so you can inspect what the model sent. Off by default — only enable for debugging.",
+                "so you can inspect what the model sent. Off by default — only enable for debugging."),
                 size=12, opacity=0.7),
-        ft.Text("When on (default), the assistant uses the provider's native function-calling "
+        ft.Text(_t("When on (default), the assistant uses the provider's native function-calling "
                 "protocol (OpenAI / Anthropic / Gemini) instead of parsing bash blocks from the "
-                "model's text. Falls back automatically for providers or models that don't support it.",
+                "model's text. Falls back automatically for providers or models that don't support it."),
                 size=12, opacity=0.7),
-        ft.Text("Bring your own key. Messages go straight from this device to your provider; secrets are "
-                "redacted first. Commands never run without the approval rules of the chosen mode.",
+        ft.Text(_t("Bring your own key. Messages go straight from this device to your provider; secrets are "
+                "redacted first. Commands never run without the approval rules of the chosen mode."),
                 size=12, opacity=0.7),
         ft.Divider(), h("Terminal"),
-        ft.Dropdown(label="Font size", value=str(s.terminal_font_size), on_select=set_term_font,
+        ft.Dropdown(label=_t("Font size"), value=str(s.terminal_font_size), on_select=set_term_font,
                     options=[ft.DropdownOption(key=str(n), text=f"{n} pt") for n in (9, 10, 11, 12, 14, 16)]),
-        ft.Switch(label="Auto-scroll to bottom on new output", value=s.terminal_auto_scroll,
+        ft.Switch(label=_t("Auto-scroll to bottom on new output"), value=s.terminal_auto_scroll,
                   on_change=lambda e: (setattr(s, "terminal_auto_scroll", bool(e.control.value)), store.save())),
-        ft.Text("When on (default), the terminal always jumps to the latest output. "
+        ft.Text(_t("When on (default), the terminal always jumps to the latest output. "
                 "Turn off if you want to scroll up and read older output without being "
-                "pulled back down.", size=12, opacity=0.7),
+                "pulled back down."), size=12, opacity=0.7),
         ft.Divider(), h("Editor"),
-        ft.Dropdown(label="Font size", value=str(s.editor_font_size), on_select=set_font,
+        ft.Dropdown(label=_t("Font size"), value=str(s.editor_font_size), on_select=set_font,
                     options=[ft.DropdownOption(key=str(n), text=f"{n} pt") for n in (11, 12, 14, 16, 18, 20)]),
-        ft.Switch(label="Back up the original file before overwriting (.takvps.bak)",
+        ft.Switch(label=_t("Back up the original file before overwriting (.takvps.bak)"),
                   value=s.editor_backup, on_change=set_backup),
         ft.Divider(), h("Startup"),
-        ft.Switch(label="Connect to last used server on launch", value=s.connect_on_launch,
+        ft.Switch(label=_t("Connect to last used server on launch"), value=s.connect_on_launch,
                   on_change=set_launch),
         ft.Divider(), h("Security"),
-        ft.Switch(label="Protect credentials with a passphrase",
+        ft.Switch(label=_t("Protect credentials with a passphrase"),
                   value=ctx.vault.mode == "passphrase", on_change=toggle_passphrase),
-        ft.Text("Without a passphrase, credentials are encrypted with a key stored in the app's "
-                "private storage. A passphrase is stronger but must be entered after each launch.",
+        ft.Text(_t("Without a passphrase, credentials are encrypted with a key stored in the app's "
+                "private storage. A passphrase is stronger but must be entered after each launch."),
                 size=12, opacity=0.7),
-        ft.Switch(label="App lock (PIN)", value=ctx.applock.enabled, on_change=toggle_lock),
-        ft.Dropdown(label="Lock after leaving the app for", value=str(ctx.applock.timeout), on_select=set_lock_timeout,
-                    options=[ft.DropdownOption(key=str(k), text=t) for k, t in ((0, "Immediately"), (60, "1 minute"), (300, "5 minutes"), (900, "15 minutes"))]),
-        ft.Text("The PIN hides the app and slows guessing down (delays after 5 wrong tries). It does not encrypt your credentials "
-                "— for that, use the passphrase option above. Biometric unlock isn't available in this build.", size=12, opacity=0.7),
-        ft.Switch(label="Safe mode (ask before EVERY change: file edits, renames, cron, keys, signals, deploys, …)",
+        ft.Switch(label=_t("App lock (PIN)"), value=ctx.applock.enabled, on_change=toggle_lock),
+        ft.Dropdown(label=_t("Lock after leaving the app for"), value=str(ctx.applock.timeout), on_select=set_lock_timeout,
+                    options=[ft.DropdownOption(key=str(k), text=_t(t)) for k, t in ((0, "Immediately"), (60, "1 minute"), (300, "5 minutes"), (900, "15 minutes"))]),
+        ft.Text(_t("The PIN hides the app and slows guessing down (delays after 5 wrong tries). It does not encrypt your credentials "
+                "— for that, use the passphrase option above. Biometric unlock isn't available in this build."), size=12, opacity=0.7),
+        ft.Switch(label=_t("Safe mode (ask before EVERY change: file edits, renames, cron, keys, signals, deploys, …)"),
                   value=s.safe_mode, on_change=set_safe),
         ft.Divider(), h("Backup & restore"),
-        ft.Text("Export the entire app state — connections, snippets, AI profiles, and settings — "
+        ft.Text(_t("Export the entire app state — connections, snippets, AI profiles, and settings — "
                 "as one encrypted bundle. Paste the text on a new phone and enter the same passphrase "
-                "to restore everything at once.", size=12, opacity=0.7),
+                "to restore everything at once."), size=12, opacity=0.7),
         ft.Row([
-            ft.FilledTonalButton("Export bundle…", icon=ft.Icons.ARCHIVE, on_click=lambda _: _export_bundle(ctx)),
-            ft.FilledTonalButton("Import bundle…", icon=ft.Icons.UNARCHIVE, on_click=lambda _: _import_bundle(ctx)),
+            ft.FilledTonalButton(_t("Export bundle…"), icon=ft.Icons.ARCHIVE, on_click=lambda _: _export_bundle(ctx)),
+            ft.FilledTonalButton(_t("Import bundle…"), icon=ft.Icons.UNARCHIVE, on_click=lambda _: _import_bundle(ctx)),
         ], spacing=8, scroll=ft.ScrollMode.AUTO),
-        ft.Text("The bundle includes decrypted secrets (passwords, private keys, API keys), but "
+        ft.Text(_t("The bundle includes decrypted secrets (passwords, private keys, API keys), but "
                 "they're re-encrypted with your passphrase before leaving the device. Use a strong "
-                "passphrase you won't forget — there's no recovery.", size=11, opacity=0.6),
+                "passphrase you won't forget — there's no recovery."), size=11, opacity=0.6),
+        ft.Divider(), h("About"),
+        ft.Row([
+            ft.FilledTonalButton(_t("Check for updates"), icon=ft.Icons.SYSTEM_UPDATE,
+                                 on_click=lambda _: _myket_check_update(ctx)),
+            ft.FilledTonalButton(_t("Rate on Myket"), icon=ft.Icons.STAR,
+                                 on_click=lambda _: _myket_rate(ctx)),
+            ft.FilledTonalButton(_t("App page"), icon=ft.Icons.INFO,
+                                 on_click=lambda _: _myket_open(ctx)),
+        ], spacing=8, scroll=ft.ScrollMode.AUTO),
+        ft.Text(f"TAKVPS v1.3.0 · {_t('Client-only SSH/VPS manager')}",
+                size=11, opacity=0.5),
     ])
 
 
@@ -282,17 +311,19 @@ def _export_bundle(ctx: AppContext) -> None:
         except Exception as e:  # noqa: BLE001
             toast(page, f"Export failed: {e}", error=True)
             return
-        page.pop_dialog()
-        # Show the blob in a selectable text field + a copy button.
+        # The passphrase dialog was already popped by _ask_passphrase's confirm().
+        # Show the result in a NEW dialog.
         field = ft.TextField(value=blob, multiline=True, min_lines=6, max_lines=12,
                               border_radius=8, text_size=10, font_family="monospace")
 
         async def copy_blob(_) -> None:
             try:
-                clip = ft.Clipboard()
-                page.services.append(clip)
-                page.update()
-                await clip.set(blob)
+                # Reuse a cached clipboard if possible
+                if not hasattr(ctx, '_clip'):
+                    ctx._clip = ft.Clipboard()
+                    page.services.append(ctx._clip)
+                    page.update()
+                await ctx._clip.set(blob)
                 toast(page, "Bundle copied to clipboard.")
             except Exception:  # noqa: BLE001
                 toast(page, "Couldn't access the clipboard.", error=True)
@@ -300,7 +331,7 @@ def _export_bundle(ctx: AppContext) -> None:
         page.show_dialog(ft.AlertDialog(
             scrollable=True,
             title=ft.Text("Export bundle"), modal=True,
-            content=ft.Container(width=420, content=ft.Column([
+            content=ft.Container(width=min(420, (page.width or 400) - 32), content=ft.Column([
                 ft.Text(f"Encrypted bundle ({len(blob):,} chars). Copy this text and save it "
                          "somewhere safe — it contains all your decrypted secrets, encrypted "
                          "with your passphrase.", size=12, opacity=0.7),
@@ -349,8 +380,11 @@ def _import_bundle(ctx: AppContext) -> None:
         except Exception as e:  # noqa: BLE001
             toast(page, f"Import failed: {e}", error=True)
             return
-        page.pop_dialog()
-        page.pop_dialog()     # close the passphrase dialog too
+        # Only pop if there's a dialog to pop (safe_confirm may have already been popped)
+        try:
+            page.pop_dialog()
+        except Exception:
+            pass
         parts = [f"{v} {k}" for k, v in counts.items() if v]
         toast(page, f"Imported: {' · '.join(parts)}")
         ctx.refresh_ui()
@@ -375,14 +409,44 @@ def _ask_passphrase(ctx: AppContext, title: str, on_ok, extra_content: ft.Contro
             toast(page, "Passphrase must be at least 4 characters.", error=True)
             return
         page.pop_dialog()
-        await on_ok(pw)
+        try:
+            await on_ok(pw)
+        except Exception as e:  # noqa: BLE001
+            toast(page, f"Error: {e}", error=True)
 
     pw_field.on_submit = confirm
     page.show_dialog(ft.AlertDialog(
         scrollable=True,
         title=ft.Text(title), modal=True,
-        content=ft.Container(width=380, content=ft.Column(col_controls, tight=True, spacing=8)),
+        content=ft.Container(width=min(380, (page.width or 400) - 32), content=ft.Column(col_controls, tight=True, spacing=8)),
         actions=[
             ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
             ft.FilledButton("Continue", on_click=lambda _: page.run_task(confirm)),
         ]))
+
+
+# ---- Myket store integration ----
+
+def _myket_check_update(ctx: AppContext) -> None:
+    """Open Myket's update check dialog."""
+    from services.myket import check_for_update
+    if not check_for_update(ctx.page):
+        toast(ctx.page, "Couldn't open Myket. Is it installed?", error=True)
+
+
+def _myket_rate(ctx: AppContext) -> None:
+    """Open the Myket rating/review flow. Asks permission first."""
+    def do_rate():
+        from services.myket import open_rating
+        if not open_rating(ctx.page):
+            toast(ctx.page, "Couldn't open Myket. Is it installed?", error=True)
+    confirm(ctx.page, "Rate on Myket?",
+            "This will open Myket's rating page for TAKVPS. You can rate and review the app there.",
+            do_rate, yes_label="Open Myket")
+
+
+def _myket_open(ctx: AppContext) -> None:
+    """Open the app's Myket details page."""
+    from services.myket import open_app_page
+    if not open_app_page(ctx.page):
+        toast(ctx.page, "Couldn't open Myket. Is it installed?", error=True)

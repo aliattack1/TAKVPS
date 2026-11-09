@@ -17,20 +17,27 @@ async def _show_tour(ctx) -> None:
     ctx.store.data.first_run_done = True
     ctx.store.save()
 
+    # Persian translation for the tour cards. The cards have a
+    # title + body pair; we look up the Persian version when the user's
+    # language is 'fa' so first-run experience feels native for Iranians.
+    lang = ctx.store.data.language
+    from services.i18n import translate
+    _t = lambda s: translate(s, lang)  # noqa: E731
+
     cards = [
-        (ft.Icons.DNS, "Connect a server",
-         "Go to the Servers page and tap Add. Enter the host, port, username, and password or SSH key. "
-         "Tap Test to check reachability, then Save."),
-        (ft.Icons.FOLDER, "Browse files",
-         "The Files page uses SFTP — navigate, upload, download, rename, and delete with the toolbar. "
-         "Deleted items go to the Recycle Bin on the server; restore from there."),
-        (ft.Icons.SMART_TOY, "Ask the AI",
-         "The AI assistant (robot icon in the topbar) can suggest and run commands. "
-         "Bring your own API key (OpenAI, Anthropic, Gemini, or local Ollama). "
-         "Secrets are redacted before sending."),
-        (ft.Icons.APPS, "Explore Tools",
-         "The Tools page (in the bottom bar) is the hub for every manager: Docker, Nginx, Cron, "
-         "Packages, Firewall, Databases, and more. Tap any tile to open it."),
+        (ft.Icons.DNS, _t("Connect a server"),
+         _t("Go to the Servers page and tap Add. Enter the host, port, username, and password or SSH key. "
+            "Tap Test to check reachability, then Save.")),
+        (ft.Icons.FOLDER, _t("Browse files"),
+         _t("The Files page uses SFTP — navigate, upload, download, rename, and delete with the toolbar. "
+            "Deleted items go to the Recycle Bin on the server; restore from there.")),
+        (ft.Icons.SMART_TOY, _t("Ask the AI"),
+         _t("The AI assistant (robot icon in the topbar) can suggest and run commands. "
+            "Bring your own API key (OpenAI, Anthropic, Gemini, or local Ollama). "
+            "Secrets are redacted before sending.")),
+        (ft.Icons.APPS, _t("Explore Tools"),
+         _t("The Tools page (in the bottom bar) is the hub for every manager: Docker, Nginx, Cron, "
+            "Packages, Firewall, Databases, and more. Tap any tile to open it.")),
     ]
     idx = [0]
 
@@ -63,17 +70,17 @@ async def _show_tour(ctx) -> None:
     def skip(_=None) -> None:
         page.pop_dialog()
 
-    btn_prev = ft.TextButton("Back", on_click=prev_card)
-    btn_next = ft.FilledButton("Next", on_click=next_card)
-    btn_skip = ft.TextButton("Skip", on_click=skip)
+    btn_prev = ft.TextButton(_t("Back"), on_click=prev_card)
+    btn_next = ft.FilledButton(_t("Next"), on_click=next_card)
+    btn_skip = ft.TextButton(_t("Skip"), on_click=skip)
 
     def _update_buttons() -> None:
         btn_prev.visible = idx[0] > 0
-        btn_next.text = "Done" if idx[0] == len(cards) - 1 else "Next"
+        btn_next.text = _t("Done") if idx[0] == len(cards) - 1 else _t("Next")
 
     _update_buttons()
     dlg = ft.AlertDialog(
-        title=ft.Text(f"Welcome to TAKVPS ({idx[0] + 1}/{len(cards)})", size=16),
+        title=ft.Text(f"{_t('Welcome to TAKVPS')} ({idx[0] + 1}/{len(cards)})", size=16),
         modal=True,
         content=content_col,
         actions=[btn_skip, btn_prev, btn_next])
@@ -83,6 +90,14 @@ async def _show_tour(ctx) -> None:
 async def main(page: ft.Page) -> None:
     page.title = "TAKVPS"
     page.padding = 0
+    # Monkey-patch pop_dialog to be safe (don't crash on empty stack)
+    _orig_pop = page.pop_dialog
+    def _safe_pop_dialog():
+        try:
+            _orig_pop()
+        except Exception:
+            pass
+    page.pop_dialog = _safe_pop_dialog
     # Set reasonable default window size on desktop.
     try:
         page.window.width = 1000
@@ -93,10 +108,13 @@ async def main(page: ft.Page) -> None:
         pass
     store = SettingsStore()
     s = store.data
-    theme.apply(page, s.theme_mode, s.preset, s.accent)
+    theme.apply(page, s.theme_mode, s.preset, s.accent, s.language)
 
     ctx = AppContext(page, store)
     shell = Shell(ctx)
+    # Expose the shell on the page so other modules (e.g. settings.apply_and_save)
+    # can trigger a full re-render when language/RTL changes.
+    page._takvps_shell = shell  # type: ignore[attr-defined]
     ctx.navigate, ctx.refresh_ui = shell.select_key, shell.refresh
     ctx.palette_pages = lambda: [(d.key, d.label) for d in shell.dests]
     ctx.bus.subscribe(CONNECTION_STATUS, shell.on_status)

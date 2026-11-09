@@ -1,4 +1,4 @@
-"""Part 7 — Tamper-evident activity log via a chained hash.
+"""Tamper-evident activity log via a chained hash.
 
 Each activity record gets a `prev_hash` (the hash of the previous record, or
 `"genesis"` for the first one) and a `hash` field (SHA-256 of

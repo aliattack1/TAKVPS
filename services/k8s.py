@@ -1,4 +1,4 @@
-"""(C2) — Kubernetes manager.
+"""Kubernetes manager.
 
 Lists pods, deployments, services; view logs; exec into a pod. Uses the
 server's own `kubectl` — nothing is installed by the app.

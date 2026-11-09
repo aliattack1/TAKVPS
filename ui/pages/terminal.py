@@ -39,8 +39,16 @@ SCROLL_BOTTOM_TOLERANCE_PX = 60
 def _is_mobile() -> bool:
     """Detect if we're on a mobile platform (Android/iOS)."""
     import os
-    return os.environ.get("FLET_PLATFORM") in ("android", "ios") or \
-           "android" in os.environ.get("FLET_APP_STORAGE_DATA", "").lower()
+    # Check multiple indicators since the env var isn't always set.
+    storage = os.environ.get("FLET_APP_STORAGE_DATA", "").lower()
+    if "android" in storage or "ios" in storage:
+        return True
+    if os.environ.get("FLET_PLATFORM") in ("android", "ios"):
+        return True
+    # On packaged Android apps, the data dir path contains the package name.
+    if "dev.takvps" in storage:
+        return True
+    return False
 
 
 def _span(text: str, style: tuple) -> ft.TextSpan:
@@ -72,6 +80,10 @@ class TerminalController:
         # them without depending on the remote shell's history file.
         self.cmd_history: list[str] = []
         self.cmd_history_idx: int = -1     # -1 = not browsing history
+        # Track the terminal's current working directory so the file browser
+        # can sync to it when the side panel is open.
+        self.last_cwd: str = ""
+        self._pending_cwd_check: bool = False
 
     # ---------------------------------------------------------------- sessions
     @property
@@ -299,7 +311,7 @@ class TerminalController:
         self.page.show_dialog(ft.AlertDialog(
             scrollable=True,
             title=ft.Text(f"Command history ({len(self.cmd_history)})"), modal=True,
-            content=ft.Container(width=400, height=min(350, (page.height or 600) - 200), content=col),
+            content=ft.Container(width=min(400, (self.page.width or 400) - 32), height=min(350, (page.height or 600) - 200), content=col),
             actions=[ft.TextButton("Clear history", on_click=lambda _: (setattr(self, "cmd_history", []), setattr(self, "cmd_history_idx", -1), self.page.pop_dialog())),
                      ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
 
@@ -363,9 +375,11 @@ class TerminalController:
         if key == "Enter":
             self.send_key("enter")
             # capture the current input line for in-app history.
-            # We read the last line of the terminal screen (the input line).
             self._capture_cmd_line()
             self.cmd_history_idx = -1     # reset browsing
+            # After Enter, check if the cwd might have changed (cd command)
+            self._pending_cwd_check = True
+            self.page.run_task(self._check_cwd_after_enter)
             return
         if key == "Backspace":
             self.send_key("backspace")
@@ -409,12 +423,56 @@ class TerminalController:
         self.page.on_keyboard_event = self.on_key if visible else None
         if not visible:
             self.view = None
+            # Blur the hidden input field when leaving the terminal page
+            # so the mobile keyboard doesn't stay open.
+            try:
+                if hasattr(self, "input") and self.input:
+                    self.input.blur()
+            except Exception:  # noqa: BLE001
+                pass
         elif self.view:
-            # Re-focus the output container so keyboard events are captured
-            # immediately on page switch. The output Container has on_tap_down
-            # which calls _on_tap_down → but we also need focus for keyboard.
-            # On desktop, on_keyboard_event fires regardless of focus.
-            # On mobile, the hidden TextField handles soft-keyboard input.
+            pass
+
+    async def _check_cwd_after_enter(self) -> None:
+        """After Enter is pressed in the terminal, check if the cwd changed.
+        Uses the main SSH connection (not the terminal session) to run 'pwd'
+        silently. If the cwd changed and the file browser side panel is open,
+        update the file browser's path."""
+        import asyncio
+        await asyncio.sleep(0.5)     # wait for the command to execute
+        if not self._pending_cwd_check:
+            return
+        self._pending_cwd_check = False
+        if self.ctx.ssh.status.value != "connected":
+            return
+        try:
+            r = await self.ctx.ssh.run("pwd", timeout=5)
+            new_cwd = r.stdout.strip()
+            if new_cwd and new_cwd != self.last_cwd:
+                self.last_cwd = new_cwd
+                # If the file browser side panel is open, update its path
+                self._sync_file_browser(new_cwd)
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _sync_file_browser(self, path: str) -> None:
+        """If the file browser side panel is open, navigate it to the given path."""
+        # Check if the shell has a files panel open
+        shell = self.ctx.page
+        # The file browser is in the shell's panel or in a dialog.
+        # We check via the files_state — if the panel is open, the shell
+        # will have a FileBrowser instance.
+        # The simplest approach: update files_state.path and call refresh
+        # via the ctx's navigate callback if the panel is open.
+        try:
+            # Check if shell panel is "files"
+            if hasattr(self.ctx, 'refresh_ui') and self.ctx.refresh_ui:
+                # Update the files_state path
+                self.ctx.files_state.path = path
+                # If the files page is the active page or panel, refresh it
+                # The shell's refresh() will rebuild the active page
+                self.ctx.refresh_ui()
+        except Exception:  # noqa: BLE001
             pass
 
     def on_resize(self) -> None:
@@ -510,6 +568,10 @@ class TerminalController:
 class TerminalView:
     def __init__(self, ctl: TerminalController) -> None:
         self.ctl, self.page = ctl, ctl.page
+        # Persian translation helper.
+        from services.i18n import translate
+        self._lang = ctl.ctx.store.data.language
+        self._t = lambda s: translate(s, self._lang)  # noqa: E731
         self._pending = False
         self._seen = 0
         self._sigs: list = []
@@ -791,23 +853,23 @@ class TerminalView:
                 t("^C", "\x03"), t("^D", "\x04"), t("^Z", "\x1a")]
         row2 = [t("|", "|"), t("/", "/"), t("~", "~"), t("-", "-"), t("_", "_"), t(".", "."),
                 t("\\", "\\"), t("*", "*"), t("&", "&"), t(">", ">"), t("$", "$"),
-                ft.IconButton(ft.Icons.CONTENT_PASTE, tooltip="Paste", width=44, height=44,
+                ft.IconButton(ft.Icons.CONTENT_PASTE, tooltip=self._t("Paste"), width=44, height=44,
                               on_click=lambda _: self.page.run_task(ctl.paste)),
-                ft.IconButton(ft.Icons.COPY, tooltip="Copy output", width=44, height=44,
+                ft.IconButton(ft.Icons.COPY, tooltip=self._t("Copy output"), width=44, height=44,
                               on_click=lambda _: self._open_copy_dialog()),
-                ft.IconButton(ft.Icons.HISTORY, tooltip="Command history", width=44, height=44,
+                ft.IconButton(ft.Icons.HISTORY, tooltip=self._t("Command history"), width=44, height=44,
                               on_click=lambda _: ctl.show_history_dialog()),
-                ft.IconButton(ft.Icons.SMART_TOY, tooltip="Ask AI about this output", width=44, height=44,
+                ft.IconButton(ft.Icons.SMART_TOY, tooltip=self._t("Ask AI about this output"), width=44, height=44,
                               on_click=lambda _: ctl.ask_ai_about_output()),
-                ft.IconButton(ft.Icons.HUB, tooltip="Persistent sessions (tmux)", width=44, height=44,
+                ft.IconButton(ft.Icons.HUB, tooltip=self._t("Persistent sessions (tmux)"), width=44, height=44,
                               on_click=lambda _: self.page.run_task(ctl.open_sessions_dialog)),
-                ft.IconButton(ft.Icons.SEARCH, tooltip="Find in output", width=44, height=44,
+                ft.IconButton(ft.Icons.SEARCH, tooltip=self._t("Find in output"), width=44, height=44,
                               on_click=lambda _: self._toggle_find()),
-                ft.IconButton(ft.Icons.CLEAR_ALL, tooltip="Clear", width=44, height=44,
+                ft.IconButton(ft.Icons.CLEAR_ALL, tooltip=self._t("Clear"), width=44, height=44,
                               on_click=lambda _: ctl.clear()),
-                ft.IconButton(ft.Icons.TEXT_DECREASE, tooltip="Smaller", width=44, height=44,
+                ft.IconButton(ft.Icons.TEXT_DECREASE, tooltip=self._t("Smaller"), width=44, height=44,
                               on_click=lambda _: ctl.change_font(-1)),
-                ft.IconButton(ft.Icons.TEXT_INCREASE, tooltip="Larger", width=44, height=44,
+                ft.IconButton(ft.Icons.TEXT_INCREASE, tooltip=self._t("Larger"), width=44, height=44,
                               on_click=lambda _: ctl.change_font(+1))]
         # function key row (F1-F12) for mobile + desktop without hardware keyboard.
         row3 = [k(f"F{i}", lambda i=i: ctl.send_key(f"f{i}")) for i in range(1, 13)]
@@ -1031,7 +1093,7 @@ class TerminalView:
         dlg = ft.AlertDialog(
             scrollable=True,
             title=ft.Text("Copy terminal output"), modal=True,
-            content=ft.Container(width=400, height=min(450, (page.height or 600) - 200), content=col),
+            content=ft.Container(width=min(400, (self.page.width or 400) - 32), height=min(450, (page.height or 600) - 200), content=col),
             actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())])
         self.page.show_dialog(dlg)
         # Initial preview update
@@ -1084,7 +1146,7 @@ class TerminalView:
         dlg = ft.AlertDialog(
             scrollable=True,
             title=ft.Text("Send to AI?", modal=True),
-            content=ft.Container(width=400, content=ft.Column([
+            content=ft.Container(width=min(400, (self.page.width or 400) - 32), content=ft.Column([
                 ft.Text("Line you pressed:", size=11, opacity=0.7),
                 ft.Text(row_text[:200], selectable=True, no_wrap=False, font_family="monospace", size=12),
             ], tight=True)),

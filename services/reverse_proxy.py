@@ -1,6 +1,6 @@
-"""(C1) — Reverse-proxy & SSL manager (Caddy / Traefik).
+"""Reverse-proxy and SSL manager (Caddy / Traefik).
 
-Detects which reverse proxy is installed (nginx already handled by Phase 10;
+Detects which reverse proxy is installed (nginx already handled by an earlier module;
 this adds Caddy and Traefik) and provides config templates + status checks.
 
 Pure: no Flet, no asyncssh. Fully testable.

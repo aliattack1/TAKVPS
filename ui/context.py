@@ -176,6 +176,10 @@ class AppContext:
     # ---------- dialogs ----------
     async def trust(self, host: str, fingerprint: str, changed_from: Optional[str]) -> bool:
         """Host-key prompt. A changed key gets a loud, red warning."""
+        from services.i18n import translate
+        lang = self.store.data.language
+        _t = lambda s: translate(s, lang)  # noqa: E731
+        from .theme import SPACE_SM, SPACE_XL, RADIUS_MD
         fut: asyncio.Future = asyncio.get_running_loop().create_future()
 
         def done(v: bool) -> None:
@@ -185,31 +189,50 @@ class AppContext:
 
         changed = changed_from is not None
         mono = "monospace"
-        body: list[ft.Control] = [ft.Text(host, weight=ft.FontWeight.W_600),
-                                  ft.Text("SHA256 fingerprint", size=12, opacity=0.7),
-                                  ft.Text(fingerprint, selectable=True, font_family=mono, size=12)]
+        body: list[ft.Control] = [
+            ft.Text(host, weight=ft.FontWeight.W_600),
+            ft.Text(_t("SHA256 fingerprint"), size=12, opacity=0.7),
+            # Fingerprint in a soft surface container so it reads as code/monospace.
+            ft.Container(
+                padding=ft.Padding.symmetric(horizontal=SPACE_SM, vertical=SPACE_SM),
+                border_radius=RADIUS_MD, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+                content=ft.Text(fingerprint, selectable=True, font_family=mono, size=12),
+            ),
+        ]
         if changed:
-            body = [ft.Text("The key for this server is DIFFERENT from the one you trusted. "
+            body = [ft.Text(_t("The key for this server is DIFFERENT from the one you trusted. "
                             "This could mean the server was reinstalled — or that someone is "
-                            "intercepting your connection. Do not continue unless you expect this.",
+                            "intercepting your connection. Do not continue unless you expect this."),
                             color=ft.Colors.ERROR, weight=ft.FontWeight.W_600),
-                    ft.Text("Previously trusted", size=12, opacity=0.7),
-                    ft.Text(changed_from, selectable=True, font_family=mono, size=12)] + body
+                    ft.Text(_t("Previously trusted"), size=12, opacity=0.7),
+                    ft.Container(
+                        padding=ft.Padding.symmetric(horizontal=SPACE_SM, vertical=SPACE_SM),
+                        border_radius=RADIUS_MD, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+                        content=ft.Text(changed_from, selectable=True, font_family=mono, size=12),
+                    )] + body
         self.page.show_dialog(ft.AlertDialog(
             modal=True,
-            title=ft.Text("⚠ HOST KEY CHANGED" if changed else "Trust this server?"),
-            content=ft.Column(body, tight=True, scroll=ft.ScrollMode.AUTO),
-            actions=[ft.TextButton("Reject", on_click=lambda _: done(False)),
-                     ft.FilledButton("Trust anyway" if changed else "Trust",
-                                     bgcolor=ft.Colors.ERROR if changed else None,
-                                     on_click=lambda _: done(True))]))
+            title=ft.Text(_t("⚠ HOST KEY CHANGED") if changed else _t("Trust this server?"),
+                          weight=ft.FontWeight.W_600),
+            content=ft.Column(body, tight=True, spacing=SPACE_SM, scroll=ft.ScrollMode.AUTO),
+            actions=[
+                # Modern dialog action order: Cancel (leading) → Trust (trailing).
+                ft.TextButton(_t("Reject"), on_click=lambda _: done(False)),
+                ft.FilledButton(_t("Trust anyway") if changed else _t("Trust"),
+                               bgcolor=ft.Colors.ERROR if changed else None,
+                               on_click=lambda _: done(True)),
+            ]))
         return await fut
 
     async def ask_text(self, title: str, label: str, password: bool = False,
                        ok: str = "OK", value: str = "") -> Optional[str]:
+        from services.i18n import translate
+        lang = self.store.data.language
+        _t = lambda s: translate(s, lang)  # noqa: E731
+        from .theme import RADIUS_MD, SPACE_SM
         fut: asyncio.Future = asyncio.get_running_loop().create_future()
         field = ft.TextField(label=label, password=password, can_reveal_password=password,
-                             autofocus=True, value=value)
+                             autofocus=True, value=value, border_radius=RADIUS_MD)
 
         def done(v: Optional[str]) -> None:
             self.page.pop_dialog()
@@ -218,12 +241,20 @@ class AppContext:
 
         field.on_submit = lambda _: done(field.value)
         self.page.show_dialog(ft.AlertDialog(
-            modal=True, title=ft.Text(title), content=field,
-            actions=[ft.TextButton("Cancel", on_click=lambda _: done(None)),
-                     ft.FilledButton(ok, on_click=lambda _: done(field.value))]))
+            modal=True,
+            title=ft.Text(title, weight=ft.FontWeight.W_600),
+            content=field,
+            actions=[
+                ft.TextButton(_t("Cancel"), on_click=lambda _: done(None)),
+                ft.FilledButton(ok, on_click=lambda _: done(field.value)),
+            ]))
         return await fut
 
     async def ask_yes_no(self, title: str, body: str, yes: str = "Yes") -> bool:
+        from services.i18n import translate
+        lang = self.store.data.language
+        _t = lambda s: translate(s, lang)  # noqa: E731
+        from .theme import SPACE_SM
         fut: asyncio.Future = asyncio.get_running_loop().create_future()
 
         def done(v: bool) -> None:
@@ -231,16 +262,34 @@ class AppContext:
             if not fut.done():
                 fut.set_result(v)
         self.page.show_dialog(ft.AlertDialog(
-            modal=True, title=ft.Text(title), content=ft.Text(body),
-            actions=[ft.TextButton("Cancel", on_click=lambda _: done(False)),
-                     ft.FilledButton(yes, on_click=lambda _: done(True))]))
+            modal=True,
+            title=ft.Text(title, weight=ft.FontWeight.W_600),
+            # Modern dialog body: muted body text (so it doesn't compete with the title).
+            content=ft.Text(body, color=ft.Colors.ON_SURFACE_VARIANT),
+            actions=[
+                ft.TextButton(_t("Cancel"), on_click=lambda _: done(False)),
+                ft.FilledButton(yes, on_click=lambda _: done(True)),
+            ]))
         return await fut
 
     async def ask_typed(self, title: str, body: str, word: str) -> bool:
-        """Typed confirmation: the user must type `word` to proceed."""
+        """Typed confirmation: the user must type `word` to proceed.
+
+        Modern UX: the title is red (destructive), the body uses the
+        secondary text color, the input has a soft surface container
+        background, and the Confirm button is disabled (greyed) until the
+        user types the exact word. The "Type X to continue" hint text
+        uses guillemets «…» so it reads naturally in both English and Persian.
+        """
+        from services.i18n import translate
+        lang = self.store.data.language
+        _t = lambda s: translate(s, lang)  # noqa: E731
+        from .theme import RADIUS_MD, SPACE_SM
         fut: asyncio.Future = asyncio.get_running_loop().create_future()
-        field = ft.TextField(hint_text=f'Type "{word}" to continue', autofocus=True)
-        ok = ft.FilledButton("Confirm", bgcolor=ft.Colors.ERROR, disabled=True)
+        field = ft.TextField(
+            hint_text=_t('Type "{word}" to continue').format(word=word),
+            autofocus=True, border_radius=RADIUS_MD)
+        ok = ft.FilledButton(_t("Confirm"), bgcolor=ft.Colors.ERROR, disabled=True)
 
         def done(v: bool) -> None:
             self.page.pop_dialog()
@@ -254,9 +303,16 @@ class AppContext:
         field.on_change = changed
         ok.on_click = lambda _: done(True)
         self.page.show_dialog(ft.AlertDialog(
-            modal=True, title=ft.Text(title, color=ft.Colors.ERROR),
-            content=ft.Column([ft.Text(body, selectable=True), field], tight=True, scroll=ft.ScrollMode.AUTO),
-            actions=[ft.TextButton("Cancel", on_click=lambda _: done(False)), ok]))
+            modal=True,
+            title=ft.Text(title, color=ft.Colors.ERROR, weight=ft.FontWeight.W_600),
+            content=ft.Column(
+                [ft.Text(body, selectable=True, color=ft.Colors.ON_SURFACE_VARIANT),
+                 field],
+                tight=True, spacing=SPACE_SM, scroll=ft.ScrollMode.AUTO),
+            actions=[
+                ft.TextButton(_t("Cancel"), on_click=lambda _: done(False)),
+                ok,
+            ]))
         return await fut
 
     # ---------- sudo / risk helpers ----------
@@ -321,6 +377,18 @@ class AppContext:
             self._activity_count += 1     # increment badge
         except OSError:
             pass
+
+    async def safe_run(self, cmd: str, timeout: float = 30, sudo: bool = False,
+                         input_text: str = None) -> "RunResult":
+        """Run a command safely — catches TakError and returns a fake result with the error."""
+        try:
+            return await self.ssh.run(cmd, timeout=timeout, sudo=sudo,
+                                      sudo_password=getattr(self, "_sudo_pw", None) if sudo else None,
+                                      input_text=input_text)
+        except TakError as e:
+            # Return a fake result with the error message
+            from core.ssh_client import RunResult
+            return RunResult(stdout="", stderr=e.message, exit_code=-1)
 
     async def write_privileged(self, path: str, data: bytes, mode: Optional[int] = None,
                                owner: str = "root", group: str = "root") -> None:

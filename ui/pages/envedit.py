@@ -19,7 +19,7 @@ class EnvView:
     def __init__(self, ctx: AppContext) -> None:
         self.ctx, self.page = ctx, ctx.page
         self.from_files = bool(ctx.env_path)
-        start = ctx.env_path or posixpath.join(ctx.files_state.path or ctx.ssh.home or "/", ".env")
+        start = ctx.env_path or posixpath.join(ctx.files_state.path or (ctx.ssh.home if ctx.ssh.status.value == "connected" else "/") or "/", ".env")
         ctx.env_path = ""
         self.path = ft.TextField(label="File path", value=start, expand=True, on_submit=lambda _: self.page.run_task(self.load))
         self.lines: list[E.EnvLine] = []

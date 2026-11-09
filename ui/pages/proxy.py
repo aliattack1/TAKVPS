@@ -118,7 +118,7 @@ class ProxyView:
             gen()
             self.page.show_dialog(ft.AlertDialog(
                                 title=ft.Text(f"Caddy: {label}"), modal=True, scrollable=True,
-                content=ft.Container(width=400, content=ft.Column(
+                content=ft.Container(width=min(400, (page.width or 400) - 32), content=ft.Column(
                     [domain_field] + extra + [result], tight=True, spacing=8)),
                 actions=[
                     ft.TextButton("Copy", on_click=lambda _: self.page.run_task(self._copy, result)),
@@ -137,10 +137,12 @@ class ProxyView:
     async def _copy(self, field: ft.TextField) -> None:
         text = field.value or ""
         try:
-            clip = ft.Clipboard()
-            self.page.services.append(clip)
-            self.page.update()
-            await clip.set(text)
+            # Reuse a cached clipboard if possible
+            if not hasattr(self, '_clip'):
+                self._clip = ft.Clipboard()
+                self.page.services.append(self._clip)
+                self.page.update()
+            await self._clip.set(text)
             toast(self.page, "Copied to clipboard.")
         except Exception:
             toast(self.page, "Couldn't access the clipboard.", error=True)

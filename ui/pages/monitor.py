@@ -175,7 +175,7 @@ class MonitorView:
     def _kill(self, p: ProcInfo) -> None:
         async def do():
             try:
-                r = await self.ctx.ssh.run(f"kill -TERM {int(p.pid)}")
+                r = await self.ctx.ssh.run(f"kill -TERM {int(p.pid)}", timeout=10)
             except TakError as e:
                 toast(self.page, e.message, error=True)
                 return

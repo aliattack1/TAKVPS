@@ -1,4 +1,4 @@
-"""Part 10 — Encrypted export bundles (B2).
+"""Encrypted export bundles.
 
 Bundles the entire app state (connections + snippets + deploys + AI profiles +
 settings) into one encrypted blob, so moving to a new phone is one paste

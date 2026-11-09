@@ -72,7 +72,7 @@ async def run_in_sheet(ctx, title: str, steps: list[Step], meta: dict,
     copy_btn.on_click = lambda _: page.run_task(ctx.terminal.copy_text, strip_ansi(runner.output))
     page.show_dialog(ft.AlertDialog(
         modal=True, title=ft.Row([ring, ft.Text(title, no_wrap=True, expand=True)]),
-        content=ft.Container(width=380, height=420, content=ft.Column(
+        content=ft.Container(width=min(380, (page.width or 400) - 32), height=420, content=ft.Column(
             [status, hint, step_col, ft.Container(out_list, expand=True, padding=8, border_radius=8,
                                             bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST)], expand=True)),
         actions=[stop_btn, copy_btn, rb_btn, close_btn]))

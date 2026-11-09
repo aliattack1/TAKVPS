@@ -102,11 +102,15 @@ class TransfersView:
             toast(self.page, "Transfer history cleared.")
 
     async def _save_copy(self, t: Transfer) -> None:
-        """Best effort: let the user pick a visible location (needed on Android scoped storage)."""
+        """On Android, the app-private download folder isn't visible in the Files app.
+        This lets the user pick a visible location via the system file picker."""
         try:
             p = Path(t.local)
+            if not p.exists():
+                toast(self.page, "The downloaded file is gone. Re-download it first.", error=True)
+                return
             if p.stat().st_size > _SAVE_COPY_MAX:
-                toast(self.page, "File is too large to copy this way.", error=True)
+                toast(self.page, "File is too large to copy this way. Use a file manager to access it directly.", error=True)
                 return
             if self._picker is None:
                 self._picker = ft.FilePicker()
@@ -114,9 +118,10 @@ class TransfersView:
                 self.page.update()
             dest = await self._picker.save_file(file_name=t.name, src_bytes=p.read_bytes())
             if dest:
-                toast(self.page, "Saved.")
-        except Exception:  # noqa: BLE001
-            toast(self.page, f"Couldn't open a save dialog here. The file is at {t.local}", error=True)
+                toast(self.page, f"Saved to {dest}")
+        except Exception as e:  # noqa: BLE001
+            # Show the actual path so the user can find it manually
+            toast(self.page, f"File is at: {t.local}", error=True)
 
 
 def open_transfers(ctx: AppContext) -> None:

@@ -24,6 +24,7 @@ def data_dir() -> Path:
 @dataclass
 class Settings:
     theme_mode: str = "system"          # light | dark | system
+    language: str = "en"               # en | fa (Persian/Farsi for Myket)
     preset: str = "default"
     accent: str = "#3B82F6"
     font_scale: float = 1.0
@@ -86,7 +87,12 @@ class SettingsStore:
 
 
 def default_download_dir() -> Path:
-    """Desktop: ~/Downloads. Packaged/mobile: app-private storage (see README: Android)."""
+    """Desktop: ~/Downloads. Packaged/mobile: app-private storage (see README: Android).
+
+    On Android, the app-private storage is NOT visible in the Files app —
+    users must use 'Save a copy' in the Transfers dialog to copy to a visible
+    location via the system file picker.
+    """
     if os.environ.get("FLET_APP_STORAGE_DATA"):
         return data_dir() / "downloads"
     dl = Path.home() / "Downloads"
@@ -99,5 +105,11 @@ def resolve_download_dir(s: "Settings") -> Path:
         p.mkdir(parents=True, exist_ok=True)
     except OSError:
         p = data_dir() / "downloads"
-        p.mkdir(parents=True, exist_ok=True)
+        try:
+            p.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            # Last resort: use a temp directory
+            import tempfile
+            p = Path(tempfile.gettempdir()) / "takvps-downloads"
+            p.mkdir(parents=True, exist_ok=True)
     return p

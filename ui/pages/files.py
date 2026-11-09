@@ -15,6 +15,7 @@ from services import envfile as ENV
 from services import files as F
 from services import recyclebin as RB
 from services import folder_transfer as FT
+from services.i18n import translate, to_persian_digits, looks_technical
 from services.transfers import unique_local_path
 from storage.settings import resolve_download_dir
 from .. import theme
@@ -23,6 +24,8 @@ from ..context import AppContext
 from .transfers import open_transfers
 
 MAX_RENDER = 400
+# Sort key → English label. The label is run through translate() at render
+# time so Persian users see "نام", "اندازه", "تاریخ تغییر", "نوع".
 _SORTS = (("name", "Name"), ("size", "Size"), ("date", "Date modified"), ("type", "Type"))
 
 
@@ -37,6 +40,10 @@ class FileBrowser:
                  on_close: Optional[Callable[[], None]] = None) -> None:
         self.ctx, self.page, self.st, self.s = ctx, ctx.page, ctx.files_state, ctx.store.data
         self.compact, self.on_close = compact, on_close
+        # Persian translation helper bound to the user's language. Using a
+        # short alias keeps the render code readable.
+        self._lang = ctx.store.data.language
+        self._t = lambda s: translate(s, self._lang)  # noqa: E731
         self.entries: list[RemoteEntry] = list(self.st.cache.get(self.st.path, []))
         self.selected: dict[str, RemoteEntry] = {}
         self.select_mode = False
@@ -54,7 +61,7 @@ class FileBrowser:
         self.bookmark_bar = ft.Container(visible=False, padding=ft.Padding.symmetric(horizontal=theme.SPACE, vertical=2),
                                          bgcolor=ft.Colors.TERTIARY_CONTAINER)
         self.crumbs = ft.Row(scroll=ft.ScrollMode.AUTO, auto_scroll=True, spacing=0)
-        self.search = ft.TextField(hint_text="Filter this folder", dense=True, visible=False,
+        self.search = ft.TextField(hint_text=self._t("Filter this folder"), dense=True, visible=False,
                                    prefix_icon=ft.Icons.SEARCH, on_change=self._on_query)
         self.paste_bar = ft.Container(visible=False, padding=theme.SPACE,
                                       bgcolor=ft.Colors.SECONDARY_CONTAINER)
@@ -76,6 +83,19 @@ class FileBrowser:
         # register a transfer-tick callback so the transfer progress bar updates.
         ctx._files_transfer_tick = self._on_transfer_tick
 
+    def _t_count(self, n: int, singular: str, plural: str = "") -> str:
+        """Format an item count in the user's language.
+
+        For Persian, ordinal counts are written with Persian-Indic digits
+        (e.g. "۳ سرور"). For English, plain Western digits.
+        """
+        word = singular if n == 1 else (plural or singular)
+        if self._lang == "fa":
+            # Looks technical? Keep Western. Otherwise Persian digits.
+            n_str = str(n) if looks_technical(str(n)) else to_persian_digits(str(n))
+            return f"{n_str} {self._t(word)}"
+        return f"{n} {word}"
+
     def _on_transfer_tick(self) -> None:
         """Called by ctx._transfers_changed when the transfer queue changes.
         Updates the progress bar and auto-refreshes when uploads finish."""
@@ -92,6 +112,27 @@ class FileBrowser:
 
     def _connected(self) -> bool:
         return self.ctx.ssh.status.value == "connected"
+
+    def _open_terminal_here(self) -> None:
+        """Open a new terminal session and cd into the current folder."""
+        if not self._connected():
+            toast(self.page, "Not connected.", error=True)
+            return
+        # Navigate to the terminal page and start a session
+        self.ctx.navigate("terminal")
+        async def _start():
+            await self.ctx.terminal.ensure_session()
+            if self.ctx.terminal.session and self.ctx.terminal.session.alive:
+                # Send cd command to the current folder
+                import shlex
+                cmd = f"cd {shlex.quote(self.cwd)}\r"
+                self.ctx.terminal.send(cmd)
+                # Store the current terminal cwd so the file browser can sync
+                self.ctx.terminal.last_cwd = self.cwd
+                toast(self.page, f"Terminal opened in {self.cwd}")
+            else:
+                toast(self.page, "Couldn't open a terminal session.", error=True)
+        self.page.run_task(_start)
 
     def _go(self, fn, *args) -> None:
         self.page.run_task(fn, *args)
@@ -137,7 +178,7 @@ class FileBrowser:
         if not self._connected():
             self._refresh_ui()
             return
-        target = path or self.st.path or self.ctx.ssh.home
+        target = path or self.st.path or (self.ctx.ssh.home if self._connected() else "/")
         self._gen += 1
         gen = self._gen
         self.loading = True
@@ -163,7 +204,7 @@ class FileBrowser:
 
     # ------------------------------------------------------------ rendering
     def _icon_btn(self, icon, tip, fn) -> ft.Control:
-        return ft.IconButton(icon, tooltip=tip, on_click=fn, width=44, height=44)
+        return ft.IconButton(icon, tooltip=self._t(tip), on_click=fn, width=44, height=44)
 
     def _render(self) -> None:
         s = self.s
@@ -171,23 +212,24 @@ class FileBrowser:
         self._render_bookmarks()
         # toolbar
         sort_items = [ft.PopupMenuItem(
-            content=ft.Text(label + ("  ✓" if s.files_sort == key else "")),
+            content=ft.Text(self._t(label) + ("  ✓" if s.files_sort == key else "")),
             on_click=lambda _, k=key: self._set_sort(k)) for key, label in _SORTS]
         sort_items.append(ft.PopupMenuItem(
-            content=ft.Text("Reverse order" + ("  ✓" if s.files_reverse else "")),
+            content=ft.Text(self._t("Reverse order") + ("  ✓" if s.files_reverse else "")),
             on_click=lambda _: self._toggle_reverse()))
         tools = [
             self._icon_btn(ft.Icons.REFRESH, "Refresh", lambda _: self._go(self.load, self.cwd)),
             self._icon_btn(ft.Icons.SEARCH, "Filter", lambda _: self._toggle_search()),
-            ft.PopupMenuButton(icon=ft.Icons.SORT, tooltip="Sort", items=sort_items),
+            ft.PopupMenuButton(icon=ft.Icons.SORT, tooltip=self._t("Sort"), items=sort_items),
             self._icon_btn(ft.Icons.VISIBILITY if s.files_hidden else ft.Icons.VISIBILITY_OFF,
                            "Hidden files", lambda _: self._toggle_hidden()),
-            ft.PopupMenuButton(icon=ft.Icons.ADD, tooltip="New", items=[
-                ft.PopupMenuItem(content=ft.Text("New folder"), icon=ft.Icons.CREATE_NEW_FOLDER,
+            ft.PopupMenuButton(icon=ft.Icons.ADD, tooltip=self._t("New"), items=[
+                ft.PopupMenuItem(content=ft.Text(self._t("New folder")), icon=ft.Icons.CREATE_NEW_FOLDER,
                                  on_click=lambda _: self._go(self.new_folder)),
-                ft.PopupMenuItem(content=ft.Text("New file"), icon=ft.Icons.NOTE_ADD,
+                ft.PopupMenuItem(content=ft.Text(self._t("New file")), icon=ft.Icons.NOTE_ADD,
                                  on_click=lambda _: self._go(self.new_file))]),
             self._icon_btn(ft.Icons.UPLOAD, "Upload", lambda _: self._go(self.upload)),
+            self._icon_btn(ft.Icons.TERMINAL, "Open terminal here", lambda _: self._open_terminal_here()),
             self._icon_btn(ft.Icons.STAR, "Bookmark this folder", lambda _: self._toggle_bookmark()),
             self._icon_btn(ft.Icons.DELETE_SWEEP, "Recycle bin", lambda _: self._go(self.open_recycle_bin)),
             self._icon_btn(ft.Icons.SWAP_VERT, "Transfers", lambda _: open_transfers(self.ctx)),
@@ -196,7 +238,9 @@ class FileBrowser:
             tools.append(self._icon_btn(ft.Icons.CLOSE, "Close", lambda _: self.on_close()))
         self.toolbar.controls = tools
 
-        # breadcrumbs
+        # breadcrumbs — direction is handled by Flet's page-level RTL flag,
+        # but the separator icon must mirror. chevron_right in RTL becomes
+        # chevron_left automatically because we set page.rtl=True.
         crumbs: list[ft.Control] = []
         for i, (label, p) in enumerate(F.breadcrumbs(self.cwd)):
             if i:
@@ -207,7 +251,7 @@ class FileBrowser:
         # list
         if not self._connected() and not self.entries:
             self.list.controls = [ft.Container(padding=24, content=ft.Text(
-                "Not connected. Connect to a server to browse its files.",
+                self._t("Not connected. Connect to a server to browse its files."),
                 text_align=ft.TextAlign.CENTER, opacity=0.7))]
         else:
             ents = F.sort_entries(F.filter_entries(self.entries, self.query, s.files_hidden),
@@ -219,12 +263,18 @@ class FileBrowser:
                     on_click=lambda _: self._go(self.load, F.parent(self.cwd))))
             tiles += [self._tile(e) for e in ents[:MAX_RENDER]]
             if len(ents) > MAX_RENDER:
+                # Use Persian digits for the count since file counts are
+                # ordinal UI numbers (not technical values like ports/IPs).
+                shown = to_persian_digits(str(MAX_RENDER)) if self._lang == "fa" else str(MAX_RENDER)
+                total = to_persian_digits(str(len(ents))) if self._lang == "fa" else str(len(ents))
+                msg = (f"{self._t('Showing')} {shown} {self._t('of')} {total} "
+                       f"{self._t('items.')}\n{self._t('Use the filter to narrow down.')}")
                 tiles.append(ft.Container(padding=16, content=ft.Text(
-                    f"Showing {MAX_RENDER} of {len(ents)} items. Use the filter to narrow down.",
-                    size=12, opacity=0.7)))
+                    msg, size=12, opacity=0.7)))
             if not ents:
                 tiles.append(ft.Container(padding=24, content=ft.Text(
-                    "No matching items." if self.query else "This folder is empty.", opacity=0.7)))
+                    self._t("No matching items.") if self.query else self._t("This folder is empty."),
+                    opacity=0.7)))
             self.list.controls = tiles
 
         # paste bar
@@ -519,7 +569,7 @@ class FileBrowser:
 
     async def _recycle_now(self, entries: list[RemoteEntry]) -> None:
         """Move the entries into the recycle bin with a sidecar metadata file each."""
-        home = self.ctx.ssh.home
+        home = self.ctx.ssh.home if self._connected() else "/"
         try:
             await self.ctx.ssh.run(RB.ensure_bin_command(home), timeout=10)
         except TakError as e:
@@ -561,7 +611,7 @@ class FileBrowser:
         if not self._connected():
             toast(self.page, "Not connected.", error=True)
             return
-        home = self.ctx.ssh.home
+        home = self.ctx.ssh.home if self._connected() else "/"
         try:
             await self.ctx.ssh.run(RB.ensure_bin_command(home), timeout=10)
             r = await self.ctx.ssh.run(RB.list_command(home), timeout=15)
@@ -572,36 +622,36 @@ class FileBrowser:
         self._render_recycle_bin_dialog(entries)
 
     def _render_recycle_bin_dialog(self, entries: list[RB.BinEntry]) -> None:
-        home = self.ctx.ssh.home
+        home = self.ctx.ssh.home if self._connected() else "/"
         col = ft.Column(spacing=8, scroll=ft.ScrollMode.AUTO, expand=True)
         if not entries:
-            col.controls.append(ft.Text("The Recycle Bin is empty.", size=13, opacity=0.7))
+            col.controls.append(ft.Text(self._t("The Recycle Bin is empty."), size=13, opacity=0.7))
         for e in entries:
             col.controls.append(ft.Row([
                 ft.Icon(ft.Icons.FOLDER if e.is_dir else ft.Icons.INSERT_DRIVE_FILE, size=20),
                 ft.Column([
                     ft.Text(e.name, no_wrap=True, weight=ft.FontWeight.W_500),
-                    ft.Text(f"Was: {e.orig_path}", size=11, opacity=0.7, no_wrap=True),
-                    ft.Text(f"{human_size(e.size)} · recycled {fmt_mtime(e.mtime)}",
+                    ft.Text(f"{self._t('Was')}: {e.orig_path}", size=11, opacity=0.7, no_wrap=True),
+                    ft.Text(f"{human_size(e.size)} · {self._t('recycled')} {fmt_mtime(e.mtime)}",
                             size=11, opacity=0.6, no_wrap=True),
                 ], spacing=2, expand=True),
-                ft.IconButton(ft.Icons.RESTORE, tooltip="Restore to original path", width=44, height=44,
+                ft.IconButton(ft.Icons.RESTORE, tooltip=self._t("Restore to original path"), width=44, height=44,
                               on_click=lambda _, en=e: self.page.run_task(self._restore_entry, en)),
-                ft.IconButton(ft.Icons.DELETE_FOREVER, tooltip="Delete forever", width=44, height=44,
+                ft.IconButton(ft.Icons.DELETE_FOREVER, tooltip=self._t("Delete forever"), width=44, height=44,
                               on_click=lambda _, en=e: self.page.run_task(self._delete_bin_entry, en)),
             ], spacing=4))
-        actions = [ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]
+        actions = [ft.TextButton(self._t("Close"), on_click=lambda _: self.page.pop_dialog())]
         if entries:
-            actions.insert(0, ft.TextButton("Empty bin", on_click=lambda _: self.page.run_task(self._empty_bin)))
+            actions.insert(0, ft.TextButton(self._t("Empty bin"), on_click=lambda _: self.page.run_task(self._empty_bin)))
         dlg = ft.AlertDialog(
             scrollable=True,
-            title=ft.Text("Recycle Bin"), modal=True,
+            title=ft.Text(self._t("Recycle Bin")), modal=True,
             content=ft.Container(width=460, height=min(420, (page.height or 600) - 200), content=col),
             actions=actions)
         self.page.show_dialog(dlg)
 
     async def _restore_entry(self, e: RB.BinEntry) -> None:
-        home = self.ctx.ssh.home
+        home = self.ctx.ssh.home if self._connected() else "/"
         # Make sure the original parent dir exists (the user might have deleted
         # the folder it lived in too).
         try:
@@ -627,7 +677,7 @@ class FileBrowser:
         self._render_recycle_bin_dialog(entries)
 
     async def _delete_bin_entry(self, e: RB.BinEntry) -> None:
-        home = self.ctx.ssh.home
+        home = self.ctx.ssh.home if self._connected() else "/"
         try:
             await self.ctx.ssh.run(RB.delete_entry_command(home, e.name, e.is_dir), timeout=30)
         except TakError as ex:
@@ -643,7 +693,7 @@ class FileBrowser:
         self._render_recycle_bin_dialog(entries)
 
     async def _empty_bin(self) -> None:
-        home = self.ctx.ssh.home
+        home = self.ctx.ssh.home if self._connected() else "/"
         if not await self.ctx.safe_confirm("Empty Recycle Bin",
                                           "Permanently delete everything in the bin? This cannot be undone."):
             return
@@ -691,7 +741,11 @@ class FileBrowser:
             return
         files = [e for e in entries if not e.is_dir]
         folders = [e for e in entries if e.is_dir]
-        dest = resolve_download_dir(self.s)
+        try:
+            dest = resolve_download_dir(self.s)
+        except Exception as e:  # noqa: BLE001
+            toast(self.page, f"Can't access download folder: {e}", error=True)
+            return
         # Single-file fast path: keep the existing simple queue path.
         if not folders:
             for e in files:

@@ -1,4 +1,4 @@
-"""Part 4 — SSH key generation in-app.
+"""SSH key generation in-app.
 
 Generates ed25519 (default) and RSA key pairs in OpenSSH format, using the
 `asyncssh` package that's already a project dependency. The private key goes

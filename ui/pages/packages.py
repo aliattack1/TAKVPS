@@ -132,7 +132,7 @@ class PackagesView:
             return
         self.page.show_dialog(ft.AlertDialog(
                         title=ft.Text(f"{name} · changelog"), scrollable=True,
-            content=ft.Container(width=380, content=ft.Text(out or "No changelog available.",
+            content=ft.Container(width=min(380, (page.width or 400) - 32), content=ft.Text(out or "No changelog available.",
                                                             font_family="monospace", size=11, selectable=True)),
             actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
 

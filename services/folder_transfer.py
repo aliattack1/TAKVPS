@@ -1,4 +1,4 @@
-"""Recursive folder transfers (— Two-Pane Transfer).
+"""Recursive folder transfers (Two-Pane Transfer).
 
 The existing transfer queue in `services/transfers.py` only handles single files:
 each entry has one `remote` and one `local` path. Folder transfers walk the tree

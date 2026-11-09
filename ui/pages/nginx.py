@@ -123,7 +123,7 @@ class NginxView:
     def _show(self, title: str, body: str, error: bool = False) -> None:
         self.page.show_dialog(ft.AlertDialog(
                         title=ft.Text(title, color=ft.Colors.ERROR if error else None, no_wrap=True), scrollable=True,
-            content=ft.Container(width=380, content=ft.Text(body or "(no output)", font_family="monospace", size=11,
+            content=ft.Container(width=min(380, (page.width or 400) - 32), content=ft.Text(body or "(no output)", font_family="monospace", size=11,
                                                             selectable=True)),
             actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
 

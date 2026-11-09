@@ -10,10 +10,11 @@ import flet as ft
 from core.errors import TakError
 from core.fmt import time_ago
 from core.ssh_client import Status
+from services.i18n import translate
 from storage.connections import ConnectionConfigError, ConnectionProfile, Secrets
 from storage.vault import VaultError
 from .. import theme
-from ..components.common import confirm, empty_state, toast
+from ..components.common import confirm, empty_state, status_pill, toast
 from ..context import AppContext
 
 COLORS = ["#3B82F6", "#22C55E", "#EF4444", "#F59E0B", "#A855F7", "#14B8A6"]
@@ -22,6 +23,8 @@ COLORS = ["#3B82F6", "#22C55E", "#EF4444", "#F59E0B", "#A855F7", "#14B8A6"]
 def connections_page(ctx: AppContext) -> ft.Control:
     page = ctx.page
     profiles = ctx.conns.list()
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
 
     def is_active(p: ConnectionProfile) -> bool:
         return bool(ctx.active and ctx.active.id == p.id and ctx.ssh.status is Status.CONNECTED)
@@ -39,22 +42,32 @@ def connections_page(ctx: AppContext) -> ft.Control:
             def do():
                 ctx.conns.delete(p.id)
                 ctx.refresh_ui()
-            confirm(page, "Delete server?", f"'{p.name}' and its saved credentials will be removed.",
-                    do, yes_label="Delete")
+            confirm(page, _t("Delete server?"),
+                    f"'{p.name}' " + _t("and its saved credentials will be removed."),
+                    do, yes_label=_t("Delete"))
 
         return ft.PopupMenuButton(items=[
-            ft.PopupMenuItem(content=ft.Text("Edit"), icon=ft.Icons.EDIT,
+            ft.PopupMenuItem(content=ft.Text(_t("Edit")), icon=ft.Icons.EDIT,
                              on_click=lambda _: open_editor(ctx, p)),
-            ft.PopupMenuItem(content=ft.Text("Duplicate"), icon=ft.Icons.CONTENT_COPY, on_click=dup),
-            ft.PopupMenuItem(content=ft.Text("Delete"), icon=ft.Icons.DELETE, on_click=delete)])
+            ft.PopupMenuItem(content=ft.Text(_t("Duplicate")), icon=ft.Icons.CONTENT_COPY, on_click=dup),
+            ft.PopupMenuItem(content=ft.Text(_t("Delete")), icon=ft.Icons.DELETE, on_click=delete)])
 
     def tile(p: ConnectionProfile) -> ft.Control:
+        # Modern tile: colored left edge + name + target + tags + status pill
+        # (instead of plain text + dot).
+        active = is_active(p)
         sub = [ft.Text(p.target, size=12, opacity=0.7)]
         if p.tags:
             sub.append(ft.Text(" · ".join(p.tags), size=11, opacity=0.6))
-        sub.append(ft.Text("Connected" if is_active(p) else f"Last connected: {time_ago(p.last_connected)}",
-                           size=11, opacity=0.6,
-                           color=ft.Colors.GREEN if is_active(p) else None))
+        # Status pill — semantic color (green=connected, neutral=never connected).
+        if active:
+            status = status_pill(_t("Connected"), "ok", dot=True)
+        elif p.last_connected > 0:
+            status = status_pill(f"{_t('Last connected')} {time_ago(p.last_connected)}",
+                                 "neutral", dot=False)
+        else:
+            status = status_pill(_t("Never connected"), "muted", dot=False)
+        sub.append(status)
 
         async def tap(_):
             await open_profile(p)
@@ -63,21 +76,23 @@ def connections_page(ctx: AppContext) -> ft.Control:
             border_radius=theme.RADIUS, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
             padding=theme.SPACE, on_click=tap, ink=True, height=None,
             content=ft.Row([
+                # Colored left edge — uses the user-picked accent for this server.
                 ft.Container(width=6, height=56, border_radius=3, bgcolor=p.color),
                 ft.Column([ft.Text(p.name, size=16, weight=ft.FontWeight.W_600), *sub],
                           spacing=2, expand=True),
-                ft.Icon(ft.Icons.CIRCLE, size=12,
-                        color=ft.Colors.GREEN if is_active(p) else ft.Colors.OUTLINE),
+                # Active indicator dot — small, only when actually connected.
+                ft.Icon(ft.Icons.CIRCLE, size=10,
+                        color=ft.Colors.GREEN if active else ft.Colors.OUTLINE),
                 menu(p)], vertical_alignment=ft.CrossAxisAlignment.CENTER))
 
     top = ft.Row([
-        ft.Text("Servers", size=22, weight=ft.FontWeight.W_600, expand=True),
+        ft.Text(_t("Servers"), size=22, weight=ft.FontWeight.W_600, expand=True),
         ft.PopupMenuButton(items=[
-            ft.PopupMenuItem(content=ft.Text("Import connections"), icon=ft.Icons.UPLOAD,
+            ft.PopupMenuItem(content=ft.Text(_t("Import connections")), icon=ft.Icons.UPLOAD,
                              on_click=lambda _: open_import(ctx)),
-            ft.PopupMenuItem(content=ft.Text("Export connections"), icon=ft.Icons.DOWNLOAD,
+            ft.PopupMenuItem(content=ft.Text(_t("Export connections")), icon=ft.Icons.DOWNLOAD,
                              on_click=lambda _: page.run_task(do_export, ctx))]),
-        ft.FilledButton("Add", icon=ft.Icons.ADD, on_click=lambda _: open_editor(ctx, None))], scroll=ft.ScrollMode.AUTO)
+        ft.FilledButton(_t("Add"), icon=ft.Icons.ADD, on_click=lambda _: open_editor(ctx, None))], scroll=ft.ScrollMode.AUTO)
 
     # quick-connect recent servers bar.
     recent = [p for p in profiles if p.last_connected > 0]
@@ -100,8 +115,8 @@ def connections_page(ctx: AppContext) -> ft.Control:
         recent_bar.content = ft.Row(chips, spacing=6, scroll=ft.ScrollMode.AUTO)
 
     body: ft.Control = (ft.ListView([tile(p) for p in profiles], spacing=theme.SPACE, expand=True)
-                        if profiles else empty_state(ft.Icons.DNS, "No servers yet",
-                                                     "Tap Add to save your first server."))
+                        if profiles else empty_state(ft.Icons.DNS, _t("No servers yet"),
+                                                     _t("Tap Add to save your first server.")))
     return ft.Container(padding=theme.SPACE, expand=True,
                         content=ft.Column([top, recent_bar, body], expand=True, spacing=theme.SPACE))
 
@@ -207,7 +222,7 @@ def open_editor(ctx: AppContext, existing: ConnectionProfile | None) -> None:
         dlg = ft.AlertDialog(
             scrollable=True,
             title=ft.Text("Generate SSH key pair"), modal=True,
-            content=ft.Container(width=420, content=ft.Column([
+            content=ft.Container(width=min(420, (page.width or 400) - 32), content=ft.Column([
                 ft.Text("Generates a new key pair in OpenSSH format. The private key "
                          "will fill the connection editor's key field; the public key "
                          "below must be installed on the server before you can connect.",
@@ -248,7 +263,7 @@ def open_editor(ctx: AppContext, existing: ConnectionProfile | None) -> None:
         from services.users import validate_new_key, parse_authorized_keys
         from core.errors import TakError
         # Read the current authorized_keys for the logged-in user.
-        home = ctx.ssh.home
+        home = ctx.ssh.home if ctx.ssh.status.value == "connected" else "/"
         auth_file = f"{home.rstrip('/')}/.ssh/authorized_keys"
         try:
             r = await ctx.ssh.run(f"cat {auth_file} 2>/dev/null || true", timeout=10)

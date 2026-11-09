@@ -1,4 +1,4 @@
-"""(G3) — Demo server stub.
+"""Demo server stub.
 
 Provides a read-only fake connection profile so users can explore the app
 before connecting a real server. The demo "server" returns canned data for

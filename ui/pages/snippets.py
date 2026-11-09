@@ -12,10 +12,11 @@ from core.fmt import time_ago
 from services import deploy as D
 from services import packs as K
 from services import snippets as S
+from services.i18n import translate
 from services.risk import classify
 from services.runner import Step
 from .. import theme
-from ..components.common import confirm, empty_state, toast
+from ..components.common import confirm, empty_state, status_pill, toast
 from ..components.runsheet import run_in_sheet
 from ..context import AppContext
 from .chat import RISK_COLORS
@@ -24,28 +25,36 @@ ICONS = ["TERMINAL", "ROCKET_LAUNCH", "UPDATE", "DELETE_SWEEP", "STORAGE", "BUIL
          "RESTART_ALT", "SECURITY", "SPEED", "CLOUD"]
 COLORS = ["#3B82F6", "#22C55E", "#EF4444", "#F59E0B", "#A855F7", "#14B8A6"]
 
+# Risk-level → semantic state for status_pill (modern, theme-aware colors).
+_RISK_TO_STATE = {"safe": "ok", "writes": "warning",
+                  "destructive": "critical", "dangerous": "critical"}
+
 
 def _icon(name: str):
     return getattr(ft.Icons, name, ft.Icons.TERMINAL)
 
 
-def _badge(level: str) -> ft.Control:
-    return ft.Container(ft.Text(level.upper(), size=9, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
-                        bgcolor=RISK_COLORS[level], padding=ft.Padding.symmetric(horizontal=5, vertical=1),
-                        border_radius=4)
+def _badge(level: str, lang: str = "en") -> ft.Control:
+    """Modern risk-level pill — uses theme STATE_COLORS so the pill picks up
+    the active color scheme automatically. Replaces the old plain-color
+    chip with white text (which had poor contrast on amber)."""
+    return status_pill(level.upper(), _RISK_TO_STATE.get(level, "neutral"), dot=False)
 
 
 # ====================================================================== page
 def snippets_page(ctx: AppContext) -> ft.Control:
     page = ctx.page
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     cid = ctx.active.id if ctx.active else ""
     connected = ctx.ssh.status.value == "connected"
     sns, dps = ctx.snippets.list_snippets(cid), ctx.snippets.list_deploys(cid)
 
     def snippet_tile(s: S.Snippet) -> ft.Control:
         def delete(_):
-            confirm(page, "Delete command?", f"“{s.name}” will be removed.",
-                    lambda: (ctx.snippets.delete_snippet(s.id), ctx.refresh_ui()), yes_label="Delete")
+            confirm(page, _t("Delete command?"), f"“{s.name}” " + _t("will be removed."),
+                    lambda: (ctx.snippets.delete_snippet(s.id), ctx.refresh_ui()),
+                    yes_label=_t("Delete"))
 
         def dup(_):
             ctx.snippets.duplicate_snippet(s.id)
@@ -56,83 +65,98 @@ def snippets_page(ctx: AppContext) -> ft.Control:
             ctx.refresh_ui()
 
         menu = ft.PopupMenuButton(items=[
-            ft.PopupMenuItem(content=ft.Text("Run in background"), icon=ft.Icons.SCHEDULE,
+            ft.PopupMenuItem(content=ft.Text(_t("Run in background")), icon=ft.Icons.SCHEDULE,
                              on_click=lambda _: page.run_task(run_snippet, ctx, s, True)),
-            ft.PopupMenuItem(content=ft.Text("History"), icon=ft.Icons.HISTORY,
+            ft.PopupMenuItem(content=ft.Text(_t("History")), icon=ft.Icons.HISTORY,
                              on_click=lambda _: open_history(ctx, s.id)),
-            ft.PopupMenuItem(content=ft.Text("Edit"), icon=ft.Icons.EDIT,
+            ft.PopupMenuItem(content=ft.Text(_t("Edit")), icon=ft.Icons.EDIT,
                              on_click=lambda _: open_snippet_editor(ctx, s)),
-            ft.PopupMenuItem(content=ft.Text("Duplicate"), icon=ft.Icons.CONTENT_COPY, on_click=dup),
-            ft.PopupMenuItem(content=ft.Text("Move up"), icon=ft.Icons.ARROW_UPWARD, on_click=lambda _: move(-1)),
-            ft.PopupMenuItem(content=ft.Text("Move down"), icon=ft.Icons.ARROW_DOWNWARD, on_click=lambda _: move(1)),
-            ft.PopupMenuItem(content=ft.Text("Delete"), icon=ft.Icons.DELETE, on_click=delete)])
-        tags = [_badge(classify(s.command).level)]
-        for flag, label in ((s.sudo, "sudo"), (s.background, "background"), (bool(s.scope), "this server"),
-                            (bool(S.find_variables(s.command)), "asks")):
+            ft.PopupMenuItem(content=ft.Text(_t("Duplicate")), icon=ft.Icons.CONTENT_COPY, on_click=dup),
+            ft.PopupMenuItem(content=ft.Text(_t("Move up")), icon=ft.Icons.ARROW_UPWARD, on_click=lambda _: move(-1)),
+            ft.PopupMenuItem(content=ft.Text(_t("Move down")), icon=ft.Icons.ARROW_DOWNWARD, on_click=lambda _: move(1)),
+            ft.PopupMenuItem(content=ft.Text(_t("Delete")), icon=ft.Icons.DELETE, on_click=delete)])
+        # Modern tag pills: risk + flags (sudo/background/scope/asks).
+        # Each is a status_pill so they all share the same visual language.
+        tags = [_badge(classify(s.command).level, lang)]
+        for flag, label, state in (
+            (s.sudo, "sudo", "info"),
+            (s.background, "background", "neutral"),
+            (bool(s.scope), "this server", "neutral"),
+            (bool(S.find_variables(s.command)), "asks", "warning"),
+        ):
             if flag:
-                tags.append(ft.Container(ft.Text(label, size=9), padding=ft.Padding.symmetric(horizontal=5, vertical=1),
-                                         border_radius=4, bgcolor=ft.Colors.SECONDARY_CONTAINER))
+                tags.append(status_pill(label, state, dot=False))
         return ft.Container(
             border_radius=theme.RADIUS, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH, padding=theme.SPACE,
             content=ft.Row([
-                ft.Icon(_icon(s.icon), color=s.color),
+                ft.Icon(_icon(s.icon), color=s.color, size=theme.ICON_SIZE_LG),
                 ft.Column([ft.Text(s.name, weight=ft.FontWeight.W_600, no_wrap=True),
-                           ft.Text(s.command.strip().splitlines()[0][:60], size=11, opacity=0.7, no_wrap=True,
-                                   font_family="monospace"),
-                           ft.Row(tags, spacing=4, wrap=True)], spacing=2, expand=True),
-                ft.IconButton(ft.Icons.PLAY_ARROW, tooltip="Run", disabled=not connected, width=44, height=44,
+                           ft.Text((s.command.strip().splitlines()[0][:60] if s.command.strip().splitlines() else ""),
+                                   size=11, opacity=0.7, no_wrap=True, font_family="monospace"),
+                           ft.Row(tags, spacing=theme.SPACE_XS, wrap=True)], spacing=2, expand=True),
+                ft.IconButton(ft.Icons.PLAY_ARROW, tooltip=_t("Run"), disabled=not connected,
+                              width=theme.MIN_TAP, height=theme.MIN_TAP,
                               on_click=lambda _: page.run_task(run_snippet, ctx, s, None)),
                 menu], vertical_alignment=ft.CrossAxisAlignment.CENTER))
 
     def deploy_tile(d: D.Deploy) -> ft.Control:
         def delete(_):
-            confirm(page, "Delete recipe?", f"“{d.name}” will be removed.",
-                    lambda: (ctx.snippets.delete_deploy(d.id), ctx.refresh_ui()), yes_label="Delete")
+            confirm(page, _t("Delete recipe?"), f"“{d.name}” " + _t("will be removed."),
+                    lambda: (ctx.snippets.delete_deploy(d.id), ctx.refresh_ui()),
+                    yes_label=_t("Delete"))
         menu = ft.PopupMenuButton(items=[
-            ft.PopupMenuItem(content=ft.Text("History"), icon=ft.Icons.HISTORY,
+            ft.PopupMenuItem(content=ft.Text(_t("History")), icon=ft.Icons.HISTORY,
                              on_click=lambda _: open_history(ctx, d.id)),
-            ft.PopupMenuItem(content=ft.Text("Edit"), icon=ft.Icons.EDIT, on_click=lambda _: open_deploy_editor(ctx, d)),
-            ft.PopupMenuItem(content=ft.Text("Delete"), icon=ft.Icons.DELETE, on_click=delete)])
+            ft.PopupMenuItem(content=ft.Text(_t("Edit")), icon=ft.Icons.EDIT, on_click=lambda _: open_deploy_editor(ctx, d)),
+            ft.PopupMenuItem(content=ft.Text(_t("Delete")), icon=ft.Icons.DELETE, on_click=delete)])
         return ft.Container(
             border_radius=theme.RADIUS, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH, padding=theme.SPACE,
             content=ft.Row([
-                ft.Icon(ft.Icons.ROCKET_LAUNCH, color=ft.Colors.PRIMARY),
+                ft.Icon(ft.Icons.ROCKET_LAUNCH, color=ft.Colors.PRIMARY, size=theme.ICON_SIZE_LG),
                 ft.Column([ft.Text(d.name, weight=ft.FontWeight.W_600, no_wrap=True),
-                           ft.Text(f"{d.project_dir} · {len(d.steps)} build step(s) · "
+                           ft.Text(f"{d.project_dir} · {len(d.steps)} {_t('build step(s)')} · "
                                    f"{D.RESTART_KINDS[d.restart_kind]}", size=11, opacity=0.7, no_wrap=True)],
                           spacing=2, expand=True),
-                ft.FilledTonalButton("Deploy", icon=ft.Icons.ROCKET_LAUNCH, disabled=not connected, height=40,
-                                     on_click=lambda _: page.run_task(run_deploy, ctx, d)),
+                ft.FilledTonalButton(_t("Deploy"), icon=ft.Icons.ROCKET_LAUNCH, disabled=not connected,
+                                     height=40, on_click=lambda _: page.run_task(run_deploy, ctx, d)),
                 menu], vertical_alignment=ft.CrossAxisAlignment.CENTER))
 
     items: list[ft.Control] = []
     groups: dict[str, list[S.Snippet]] = {}
     for s in sns:
         groups.setdefault(s.group, []).append(s)
+    # Modern section header — slightly larger and more breathing room
+    # than the previous plain Text.
+    from ..components.common import section_header
     for g in sorted(groups, key=lambda x: (x == "", x.lower())):
-        items.append(ft.Text(g or "Ungrouped", size=13, weight=ft.FontWeight.W_600, opacity=0.7))
+        items.append(section_header(g or _t("Ungrouped")))
         items += [snippet_tile(s) for s in groups[g]]
     if dps:
-        items.append(ft.Text("Git deploy recipes", size=13, weight=ft.FontWeight.W_600, opacity=0.7))
+        items.append(section_header(_t("Git deploy recipes")))
         items += [deploy_tile(d) for d in dps]
     if not items:
-        items = [empty_state(ft.Icons.BOLT, "No commands yet",
-                             "Save your frequent commands, or import a starter pack from the ⋮ menu.")]
+        # Modern empty state with a primary action button.
+        items = [empty_state(
+            ft.Icons.BOLT, _t("No commands yet"),
+            _t("Save your frequent commands, or import a starter pack from the ⋮ menu."),
+            action_label=_t("Add a command"),
+            on_action=lambda _: open_snippet_editor(ctx, None))]
 
     top = ft.Row([
-        ft.Text("Commands", size=22, weight=ft.FontWeight.W_600, expand=True),
+        ft.Text(_t("Commands"), size=22, weight=ft.FontWeight.W_600, expand=True),
         ft.PopupMenuButton(items=[
-            ft.PopupMenuItem(content=ft.Text("New Git deploy recipe"), icon=ft.Icons.ROCKET_LAUNCH,
+            ft.PopupMenuItem(content=ft.Text(_t("New Git deploy recipe")), icon=ft.Icons.ROCKET_LAUNCH,
                              on_click=lambda _: open_deploy_editor(ctx, None)),
-            ft.PopupMenuItem(content=ft.Text("Packs: import / export"), icon=ft.Icons.INVENTORY_2,
+            ft.PopupMenuItem(content=ft.Text(_t("Packs: import / export")), icon=ft.Icons.INVENTORY_2,
                              on_click=lambda _: open_packs(ctx)),
-            ft.PopupMenuItem(content=ft.Text("Run history"), icon=ft.Icons.HISTORY,
+            ft.PopupMenuItem(content=ft.Text(_t("Run history")), icon=ft.Icons.HISTORY,
                              on_click=lambda _: open_history(ctx, ""))]),
-        ft.FilledButton("Add", icon=ft.Icons.ADD, on_click=lambda _: open_snippet_editor(ctx, None))], scroll=ft.ScrollMode.AUTO)
+        ft.FilledButton(_t("Add"), icon=ft.Icons.ADD,
+                        on_click=lambda _: open_snippet_editor(ctx, None))], scroll=ft.ScrollMode.AUTO)
 
     # search/filter bar for snippets.
-    search = ft.TextField(hint_text="Filter commands by name or text…", dense=True,
-                          prefix_icon=ft.Icons.SEARCH, border_radius=8)
+    search = ft.TextField(hint_text=_t("Filter commands by name or text…"), dense=True,
+                          prefix_icon=ft.Icons.SEARCH, border_radius=theme.RADIUS_MD)
     filtered_items = list(items)     # will be re-filtered on search
 
     def do_filter(_=None) -> None:
@@ -145,18 +169,21 @@ def snippets_page(ctx: AppContext) -> ft.Control:
             filtered_snippets = [s for s in sns if matches(s)]
             filtered_deploys = [d for d in dps if q in d.name.lower()]
             new_items: list[ft.Control] = []
-            # Regroup filtered snippets
             fgroups: dict[str, list] = {}
             for s in filtered_snippets:
                 fgroups.setdefault(s.group or "", []).append(s)
             for g in sorted(fgroups.keys(), key=lambda x: (x == "", x.lower())):
-                new_items.append(ft.Text(g or "Ungrouped", size=13, weight=ft.FontWeight.W_600, opacity=0.7))
+                new_items.append(section_header(g or _t("Ungrouped")))
                 new_items += [snippet_tile(s) for s in fgroups[g]]
             if filtered_deploys:
-                new_items.append(ft.Text("Git deploy recipes", size=13, weight=ft.FontWeight.W_600, opacity=0.7))
+                new_items.append(section_header(_t("Git deploy recipes")))
                 new_items += [deploy_tile(d) for d in filtered_deploys]
             if not new_items:
-                new_items = [ft.Container(padding=24, content=ft.Text(f"No commands matching '{search.value}'.", opacity=0.7))]
+                # Modern search-no-results state (clear "no matches" rather than
+                # the previous raw text).
+                new_items = [empty_state(
+                    ft.Icons.SEARCH_OFF, _t("No matches"),
+                    _t("No commands match “{q}”. Try a different search.").format(q=search.value))]
             lst.controls = new_items
         page.update()
 

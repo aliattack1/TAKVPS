@@ -1,4 +1,4 @@
-"""Persistent terminal sessions via the server's own tmux .
+"""Persistent terminal sessions via the server's own tmux.
 
 Nothing is installed: if `tmux` is missing, the UI shows a clear "tmux not installed"
 message and falls back to the existing in-memory shell. When present, sessions are

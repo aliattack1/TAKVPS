@@ -239,7 +239,7 @@ class UsersView:
                          [ft.Divider(), ft.Text(text.strip()[-3000:] or "No failed attempts found (or logs aren't readable).",
                                                 font_family="monospace", size=10, selectable=True)], tight=True)
         self.page.show_dialog(ft.AlertDialog(title=ft.Text("Failed login attempts"), scrollable=True,
-                                             content=ft.Container(width=380, content=body),
+                                             content=ft.Container(width=min(380, (page.width or 400) - 32), content=body),
                                              actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
 
 

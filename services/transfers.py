@@ -141,8 +141,13 @@ class TransferQueue:
         if t.kind == "down":
             part = t.local + PART_SUFFIX
             try:
+                # Ensure the parent directory exists before downloading
+                import os as _os
+                parent = _os.path.dirname(t.local)
+                if parent:
+                    _os.makedirs(parent, exist_ok=True)
                 await self.ssh.download(t.remote, part, self._progress(t))
-                os.replace(part, t.local)
+                _os.replace(part, t.local)
             except BaseException:
                 try:
                     os.remove(part)
