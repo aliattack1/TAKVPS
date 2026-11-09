@@ -62,13 +62,12 @@ jobs:
           # arm64-v8a is the only abi that ships prebuilt `cryptography` wheels on the
           # Flet-hosted wheel index (pypi.flet.dev). Building for armeabi-v7a / x86_64
           # would require compiling cryptography from source, which is slow and flaky.
-          # --android-skip-build-dependency-validation: defensive flag recommended by
-          # the Flutter Gradle plugin itself. Keeps the build green through Flutter /
-          # AGP upgrades (e.g. Flutter 3.47 started enforcing minSdkVersion >= 23,
-          # which we already bumped in pyproject.toml; this flag is the safety net
-          # for the next such tightening, like the AGP 8.13 → 9.0.1 warning).
-          flet build apk --target-platform android-arm64 \
-            --android-skip-build-dependency-validation
+          # Note: --android-skip-build-dependency-validation does NOT exist in flet-cli
+          # 1.1.2 — passing it causes "unrecognized arguments" and exits before any
+          # build work. The real fix for Flutter Gradle validation failures is to
+          # bump the offending version (e.g. min_sdk_version) in pyproject.toml,
+          # which we already did (21 → 23 for Flutter 3.47+).
+          flet build apk --target-platform android-arm64
         env:
           # Flet's build downloads Python wheels from pypi.flet.dev (its own mirror that
           # hosts Android wheels for native deps like `cryptography`). No auth needed.

@@ -66,16 +66,17 @@ jobs:
             --android-signing-key-store "$HOME/takvps.keystore" \
             --android-signing-key-store-password "$KEYSTORE_PASSWORD" \
             --android-signing-key-alias "$KEY_ALIAS" \
-            --android-signing-key-password "$KEY_PASSWORD" \
-            --android-skip-build-dependency-validation
-        # --android-skip-build-dependency-validation: defensive flag
-        # recommended by the Flutter Gradle plugin itself. We've already
-        # bumped min_sdk_version to 23 in pyproject.toml (the only hard
-        # failure we've actually hit), but skipping the full validation
-        # gate keeps the build green through the next Flutter/AGP upgrade
-        # (e.g. the AGP 8.13 → 9.0.1 warning Flutter 3.47 emits).
-        # If validation fails again, the proper fix is to bump the
-        # offending version in pyproject.toml, not to remove this flag.
+            --android-signing-key-password "$KEY_PASSWORD"
+        # Note: the `--android-skip-build-dependency-validation` flag I tried
+        # to add in the previous commit doesn't actually exist in flet-cli
+        # 1.1.2 — `flet build apk --help` confirms it. Passing it caused
+        # the build to fail immediately with "unrecognized arguments" before
+        # any real work happened. Removed.
+        # The real fix for the original ReleaseMinSdkCheck failure was
+        # bumping min_sdk_version from 21 → 23 in pyproject.toml, which
+        # IS in place. Future Flutter/AGP constraint tightenings should
+        # be fixed by bumping the offending version in pyproject.toml,
+        # not by passing unknown CLI flags.
 
       - name: Verify APK signature
         run: |
