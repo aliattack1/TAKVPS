@@ -66,17 +66,26 @@ jobs:
             --android-signing-key-store "$HOME/takvps.keystore" \
             --android-signing-key-store-password "$KEYSTORE_PASSWORD" \
             --android-signing-key-alias "$KEY_ALIAS" \
-            --android-signing-key-password "$KEY_PASSWORD"
-        # Note: the `--android-skip-build-dependency-validation` flag I tried
-        # to add in the previous commit doesn't actually exist in flet-cli
-        # 1.1.2 — `flet build apk --help` confirms it. Passing it caused
-        # the build to fail immediately with "unrecognized arguments" before
-        # any real work happened. Removed.
-        # The real fix for the original ReleaseMinSdkCheck failure was
-        # bumping min_sdk_version from 21 → 23 in pyproject.toml, which
-        # IS in place. Future Flutter/AGP constraint tightenings should
-        # be fixed by bumping the offending version in pyproject.toml,
-        # not by passing unknown CLI flags.
+            --android-signing-key-password "$KEY_PASSWORD" \
+            --flutter-build-args=--android-skip-build-dependency-validation
+        # `--flutter-build-args=--android-skip-build-dependency-validation`
+        # is the *proper* flet-supported way to bypass Flutter's Gradle
+        # ReleaseMinSdkCheck (and friends). flet-cli's `--flutter-build-args`
+        # passes everything after it through to the underlying
+        # `flutter build apk` command, where the actual flag lives.
+        #
+        # The earlier attempt used `--android-skip-build-dependency-validation`
+        # as a top-level flet CLI flag, which doesn't exist in flet-cli 1.1.2
+        # and was rejected by argparse with exit code 2. This corrected form
+        # is documented in `flet build apk --help`:
+        #   "Additional arguments for flutter build command. Attach an
+        #    argument that starts with `-` using `=`, e.g.
+        #    `--flutter-build-args=--obfuscate`".
+        #
+        # Combined with min_sdk_version = 23 in pyproject.toml (the actual
+        # fix for the original ReleaseMinSdkCheck failure), this should
+        # keep the build green through any future Flutter/AGP constraint
+        # tightenings (e.g. AGP 8.13 → 9.0.1).
 
       - name: Verify APK signature
         run: |
@@ -99,8 +108,34 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Debug — show build tree (on failure)
+      - name: Debug — capture build diagnostics (on failure)
         if: failure()
         run: |
+          echo "========== build/flutter/android/app/build.gradle =========="
+          # This file is what flet generates from pyproject.toml. If
+          # min_sdk_version = 23 wasn't picked up, the build.gradle will
+          # still show minSdkVersion 21 (and ReleaseMinSdkCheck fails).
+          cat build/flutter/android/app/build.gradle 2>/dev/null | head -80 || \
+            echo "(build.gradle not found — flet didn't generate the Android shell)"
+          echo ""
+          echo "========== build/flutter/android/settings.gradle =========="
+          # The AGP version that's actually in use lives here.
+          cat build/flutter/android/settings.gradle 2>/dev/null | head -40 || true
+          echo ""
+          echo "========== build/flutter/android/gradle.properties =========="
+          cat build/flutter/android/gradle.properties 2>/dev/null | head -40 || true
+          echo ""
+          echo "========== build tree (directories) =========="
           find build -maxdepth 6 -type d 2>/dev/null | head -40 || true
+          echo ""
+          echo "========== any APK produced? =========="
           find . -name "*.apk" 2>/dev/null || true
+          echo ""
+          echo "========== last 200 lines of flet verbose log =========="
+          # flet writes a verbose log somewhere under build/ — find it.
+          log=$(find build -name "*.log" -type f 2>/dev/null | head -1)
+          if [ -n "$log" ]; then
+            tail -200 "$log"
+          else
+            echo "(no .log file found under build/)"
+          fi
