@@ -15,11 +15,11 @@ org = "dev.takvps"
 product = "takvps"
 
 [tool.flet.android]
-# min_sdk_version = 23 is the minimum Flutter 3.47+ accepts (Android 6.0
-# Marshmallow, Oct 2015). Devices below this are <0.5% of the install base
-# in 2026 per Google's distribution dashboard — not worth carrying the
-# build-brokenness to support. Bumped from 21 in v1.3.0 after the Flutter
-# toolchain started enforcing ReleaseMinSdkCheck.
+# min_sdk_version = 24 is what Flutter 3.47+ actually requires on the
+# GitHub Actions runner (Android 7.0 Nougat, Aug 2016). The previous
+# bump to 23 was based on Flutter's documented "minimum supported
+# version", but the ReleaseMinSdkCheck task on the runner enforces 24.
+# Bumped from 23 → 24 in v1.3.4.
 # See: https://developer.android.com/about/dashboards
-min_sdk_version = 23
+min_sdk_version = 24
 target_sdk_version = 34
