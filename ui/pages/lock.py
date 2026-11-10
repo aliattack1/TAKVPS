@@ -5,11 +5,14 @@ from typing import Callable
 
 import flet as ft
 
+from services.i18n import translate
 from ..context import AppContext
 
 
 def show_lock(ctx: AppContext, on_unlock: Callable[[], None]) -> None:
     page = ctx.page
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     try:
         page.pop_dialog()                              # don't leave a dialog open over the lock screen
     except Exception:  # noqa: BLE001
@@ -36,7 +39,7 @@ def show_lock(ctx: AppContext, on_unlock: Callable[[], None]) -> None:
 
     pin.on_submit = attempt
     page.add(ft.SafeArea(expand=True, content=ft.Column(
-        [ft.Icon(ft.Icons.LOCK, size=56), ft.Text("TAKVPS is locked", size=20, weight=ft.FontWeight.W_600), pin, msg,
-         ft.FilledButton("Unlock", icon=ft.Icons.LOCK_OPEN, on_click=attempt)],
+        [ft.Icon(ft.Icons.LOCK, size=56), ft.Text(_t("TAKVPS is locked"), size=20, weight=ft.FontWeight.W_600), pin, msg,
+         ft.FilledButton(_t("Unlock"), icon=ft.Icons.LOCK_OPEN, on_click=attempt)],
         alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True, spacing=14)))
     page.update()

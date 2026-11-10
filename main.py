@@ -12,7 +12,7 @@ from ui.shell import Shell
 
 
 async def _show_tour(ctx) -> None:
-    """a 4-card intro shown on first launch."""
+    """a 4-card intro shown on first launch, ending with a language picker."""
     page = ctx.page
     ctx.store.data.first_run_done = True
     ctx.store.save()
@@ -51,6 +51,51 @@ async def _show_tour(ctx) -> None:
 
     content_col = ft.Container(width=360, padding=20, content=render_card())
 
+    def show_language_picker() -> None:
+        """Replace the tour dialog with a language picker after the last card."""
+        from ui import theme as theme_mod
+
+        def pick_language(lang_code: str) -> None:
+            ctx.store.data.language = lang_code
+            ctx.store.save()
+            # Re-apply the theme so RTL + Persian font take effect immediately.
+            s = ctx.store.data
+            theme_mod.apply(page, s.theme_mode, s.preset, s.accent, s.language)
+            page.pop_dialog()
+            # Force a full shell re-render so all nav labels update.
+            shell = getattr(page, "_takvps_shell", None)
+            if shell is not None:
+                shell.render()
+            else:
+                page.update()
+
+        lang_content = ft.Container(width=360, padding=20, content=ft.Column([
+            ft.Icon(ft.Icons.LANGUAGE, size=48, color=ft.Colors.PRIMARY),
+            ft.Text(_t("Choose your language"), size=18, weight=ft.FontWeight.W_700,
+                    text_align=ft.TextAlign.CENTER),
+            ft.Text(_t("You can change this later in Settings."),
+                    size=12, opacity=0.7, text_align=ft.TextAlign.CENTER),
+            ft.Container(height=8),
+            ft.FilledButton(
+                "English",
+                icon=ft.Icons.LANGUAGE,
+                width=200, height=48,
+                on_click=lambda _: pick_language("en"),
+            ),
+            ft.FilledButton(
+                "فارسی",
+                icon=ft.Icons.LANGUAGE,
+                width=200, height=48,
+                on_click=lambda _: pick_language("fa"),
+            ),
+        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=12))
+
+        # Replace the dialog content with the language picker.
+        dlg.content = lang_content
+        dlg.title = ft.Text(_t("Language / زبان"), size=16)
+        dlg.actions = []  # no action buttons — the language buttons ARE the actions
+        page.update()
+
     def next_card(_=None) -> None:
         if idx[0] < len(cards) - 1:
             idx[0] += 1
@@ -58,7 +103,8 @@ async def _show_tour(ctx) -> None:
             _update_buttons()
             page.update()
         else:
-            page.pop_dialog()
+            # Last card "Done" → show the language picker instead of just closing.
+            show_language_picker()
 
     def prev_card(_=None) -> None:
         if idx[0] > 0:

@@ -8,6 +8,7 @@ import flet as ft
 
 from core.errors import TakError
 from core.fmt import human_duration, human_size
+from services.i18n import translate
 from services.monitor import Metrics, ProcInfo, Thresholds, level, overall_level
 from .. import theme
 from ..components.common import card, confirm, toast
@@ -33,13 +34,18 @@ def _kv(label: str, value: str) -> ft.Control:
 class MonitorView:
     def __init__(self, ctx: AppContext) -> None:
         self.ctx, self.page = ctx, ctx.page
+        # Persian translation helper bound to the user's language.
+        self._lang = ctx.store.data.language
+        self._t = lambda s: translate(s, self._lang)  # noqa: E731
         self.last: Optional[Metrics] = None
         self.proc_mode = "cpu"
 
         self.health_dot = ft.Icon(ft.Icons.CIRCLE, size=12)
-        self.health_txt = ft.Text("Waiting for data…")
+        self.health_txt = ft.Text(self._t("Waiting for data…"))
         self.status = ft.Text("", size=11, opacity=0.6)
-        self.g_cpu, self.g_ram, self.g_swap = RingGauge("CPU"), RingGauge("RAM"), RingGauge("Swap")
+        self.g_cpu, self.g_ram, self.g_swap = (RingGauge(self._t("CPU")),
+                                                RingGauge(self._t("RAM")),
+                                                RingGauge(self._t("Swap")))
         # use real `flet_charts.LineChart` sparklines when available
         # (and the user hasn't disabled them in Settings). LineChartSpark falls
         # back to the bar Sparkline on its own, so we always construct one and
@@ -58,8 +64,8 @@ class MonitorView:
         self.proc_col = ft.Column(spacing=0)
         self.proc_toggle = ft.SegmentedButton(
             selected=["cpu"], on_change=self._on_proc_mode,
-            segments=[ft.Segment(value="cpu", label=ft.Text("CPU")),
-                      ft.Segment(value="mem", label=ft.Text("Memory"))])
+            segments=[ft.Segment(value="cpu", label=ft.Text(self._t("CPU"))),
+                      ft.Segment(value="mem", label=ft.Text(self._t("Memory")))])
 
         def spark_card(title, t_val, sp, extra=None):
             return card(ft.Column([ft.Row([ft.Text(title, size=13, weight=ft.FontWeight.W_600),
@@ -70,15 +76,15 @@ class MonitorView:
             ft.Row([self.health_dot, self.health_txt, ft.Container(expand=True), self.status]),
             card(ft.Row([self.g_cpu.control, self.g_ram.control, self.g_swap.control],
                         alignment=ft.MainAxisAlignment.SPACE_AROUND)),
-            spark_card("CPU history", self.t_cpu, self.sp_cpu),
-            spark_card("RAM history", self.t_ram, self.sp_ram),
-            spark_card("Network ↓ download", self.t_down, self.sp_down),
-            spark_card("Network ↑ upload", self.t_up, self.sp_up),
-            card(ft.ExpansionTile(title=ft.Text("Per-core CPU"), controls=[self.cores_col])),
-            card(ft.Column([_section("Disks"), self.disks_col], spacing=8)),
-            card(ft.Column([_section("Network & disk I/O"), self.net_col], spacing=4)),
-            card(ft.Column([_section("System"), self.sys_col], spacing=4)),
-            card(ft.Column([_section("Top processes"), self.proc_toggle, self.proc_col], spacing=6)),
+            spark_card(self._t("CPU history"), self.t_cpu, self.sp_cpu),
+            spark_card(self._t("RAM history"), self.t_ram, self.sp_ram),
+            spark_card(self._t("Network ↓ download"), self.t_down, self.sp_down),
+            spark_card(self._t("Network ↑ upload"), self.t_up, self.sp_up),
+            card(ft.ExpansionTile(title=ft.Text(self._t("Per-core CPU")), controls=[self.cores_col])),
+            card(ft.Column([_section(self._t("Disks")), self.disks_col], spacing=8)),
+            card(ft.Column([_section(self._t("Network & disk I/O")), self.net_col], spacing=4)),
+            card(ft.Column([_section(self._t("System")), self.sys_col], spacing=4)),
+            card(ft.Column([_section(self._t("Top processes")), self.proc_toggle, self.proc_col], spacing=6)),
         ])
 
     # ---- helpers ----
@@ -106,13 +112,13 @@ class MonitorView:
         lc, lr = level(m.cpu, t.cpu), level(m.mem_pct, t.ram)
         ov = overall_level(m, t)
         self.health_dot.color = LEVEL_COLORS[ov]
-        self.health_txt.value = _HEALTH[ov]
-        self.status.value = "Live · " + time.strftime("%H:%M:%S", time.localtime(m.taken_at))
+        self.health_txt.value = self._t(_HEALTH[ov])
+        self.status.value = self._t("Live") + " · " + time.strftime("%H:%M:%S", time.localtime(m.taken_at))
 
         self.g_cpu.set(m.cpu, lc, f"load {m.load[0]:.2f}")
         self.g_ram.set(m.mem_pct, lr, f"{human_size(m.mem_used_kb * 1024)} / {human_size(m.mem_total_kb * 1024)}")
         self.g_swap.set(m.swap_pct if m.swap_total_kb else None, level(m.swap_pct, (50, 80)),
-                        human_size(m.swap_total_kb * 1024) if m.swap_total_kb else "none")
+                        human_size(m.swap_total_kb * 1024) if m.swap_total_kb else self._t("none"))
 
         h = self.ctx.monitor.history
         self.sp_cpu.set(h["cpu"], 100, LEVEL_COLORS[lc])
@@ -127,26 +133,26 @@ class MonitorView:
             ft.Row([ft.Text(str(i), width=24, size=12),
                     ft.ProgressBar(value=v / 100, color=LEVEL_COLORS[level(v, t.cpu)], expand=True),
                     ft.Text(f"{v:.0f}%", width=44, size=12, text_align=ft.TextAlign.END)])
-            for i, v in enumerate(m.cores)] or [ft.Text("Collecting…", size=12, opacity=0.6)]
+            for i, v in enumerate(m.cores)] or [ft.Text(self._t("Collecting…"), size=12, opacity=0.6)]
 
         self.disks_col.controls = [
             ft.Column([ft.Row([ft.Text(d.mount, expand=True, no_wrap=True),
                                ft.Text(f"{human_size(d.used_kb * 1024)} / {human_size(d.size_kb * 1024)}  "
                                        f"({d.pct}%)", size=12)]),
                        ft.ProgressBar(value=d.pct / 100, color=LEVEL_COLORS[level(d.pct, t.disk)])],
-                      spacing=4) for d in m.mounts] or [ft.Text("No block-device mounts found.", size=12, opacity=0.6)]
+                      spacing=4) for d in m.mounts] or [ft.Text(self._t("No block-device mounts found."), size=12, opacity=0.6)]
 
         self.net_col.controls = [_kv(f"{i}", f"↓ {_rate(d)}   ↑ {_rate(u)}") for i, (d, u) in m.net.items()]
-        self.net_col.controls.append(_kv("Disk I/O", f"R {_rate(m.disk_read)}   W {_rate(m.disk_write)}"))
+        self.net_col.controls.append(_kv(self._t("Disk I/O"), f"R {_rate(m.disk_read)}   W {_rate(m.disk_write)}"))
 
-        rows = [_kv("Uptime", human_duration(m.uptime_s)),
-                _kv("Load 1 / 5 / 15", " / ".join(f"{x:.2f}" for x in m.load)),
-                _kv("Processes", str(m.procs)), _kv("Logged-in users", str(m.users))]
+        rows = [_kv(self._t("Uptime"), human_duration(m.uptime_s)),
+                _kv(self._t("Load 1 / 5 / 15"), " / ".join(f"{x:.2f}" for x in m.load)),
+                _kv(self._t("Processes"), str(m.procs)), _kv(self._t("Logged-in users"), str(m.users))]
         if m.temp_c is not None:
-            rows.append(_kv("Temperature", f"{m.temp_c:.0f} °C"))
+            rows.append(_kv(self._t("Temperature"), f"{m.temp_c:.0f} °C"))
         info = self.ctx.sysinfo
         if info:
-            rows += [_kv("OS", info.distro or "—"), _kv("Kernel", info.kernel or "—")]
+            rows += [_kv(self._t("OS"), info.distro or "—"), _kv(self._t("Kernel"), info.kernel or "—")]
         self.sys_col.controls = rows
         self._draw_procs(m)
         if update:
@@ -155,12 +161,12 @@ class MonitorView:
     def _draw_procs(self, m: Metrics) -> None:
         procs = m.top_cpu if self.proc_mode == "cpu" else m.top_mem
         if not procs:
-            self.proc_col.controls = [ft.Text("Process list not available on this server.",
+            self.proc_col.controls = [ft.Text(self._t("Process list not available on this server."),
                                               size=12, opacity=0.6)]
             return
         self.proc_col.controls = [
-            ft.Text("CPU % is the average since each process started, not the live value."
-                    if self.proc_mode == "cpu" else "Memory % of RAM.", size=11, opacity=0.6)
+            ft.Text(self._t("CPU % is the average since each process started, not the live value.")
+                    if self.proc_mode == "cpu" else self._t("Memory % of RAM."), size=11, opacity=0.6)
         ] + [self._proc_row(p) for p in procs]
 
     def _proc_row(self, p: ProcInfo) -> ft.Control:
@@ -169,7 +175,7 @@ class MonitorView:
                        ft.Text(f"PID {p.pid} · {p.user}", size=11, opacity=0.6)], spacing=0, expand=True),
             ft.Text(f"{p.cpu:.1f}% / {p.mem:.1f}%", size=12),
             ft.IconButton(ft.Icons.CLOSE, icon_size=20, width=44, height=44,
-                          tooltip="Kill process", on_click=lambda _, q=p: self._kill(q))],
+                          tooltip=self._t("Kill process"), on_click=lambda _, q=p: self._kill(q))],
             vertical_alignment=ft.CrossAxisAlignment.CENTER)
 
     def _kill(self, p: ProcInfo) -> None:
@@ -180,15 +186,16 @@ class MonitorView:
                 toast(self.page, e.message, error=True)
                 return
             if r.ok:
-                toast(self.page, f"Sent SIGTERM to {p.cmd} ({p.pid}).")
+                toast(self.page, self._t("Sent SIGTERM to") + f" {p.cmd} ({p.pid}).")
             elif "not permitted" in r.stderr.lower():
-                toast(self.page, "Permission denied — that process belongs to another user.", error=True)
+                toast(self.page, self._t("Permission denied — that process belongs to another user."), error=True)
             else:
-                toast(self.page, r.stderr.strip() or "Could not signal the process.", error=True)
-        confirm(self.page, "Kill process?",
-                f"Send SIGTERM to '{p.cmd}' (PID {p.pid}, user {p.user}). The process may not stop "
-                "immediately, and killing system processes can break the server.",
-                do, yes_label="Kill")
+                toast(self.page, r.stderr.strip() or self._t("Could not signal the process."), error=True)
+        confirm(self.page, self._t("Kill process?"),
+                self._t("Send SIGTERM to '{cmd}' (PID {pid}, user {user}). The process may not stop "
+                        "immediately, and killing system processes can break the server.")
+                .format(cmd=p.cmd, pid=p.pid, user=p.user),
+                do, yes_label=self._t("Kill"))
 
 
 def monitor_page(ctx: AppContext) -> ft.Control:
@@ -197,7 +204,7 @@ def monitor_page(ctx: AppContext) -> ft.Control:
     if ctx.monitor.last:
         view.apply(ctx.monitor.last, update=False)
     elif ctx.ssh.status.value != "connected":
-        view.status.value = "Not connected"
+        view.status.value = view._t("Not connected")
     else:
-        view.status.value = "Collecting first sample…"
+        view.status.value = view._t("Collecting first sample…")
     return view.control

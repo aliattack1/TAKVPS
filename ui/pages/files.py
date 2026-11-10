@@ -116,7 +116,7 @@ class FileBrowser:
     def _open_terminal_here(self) -> None:
         """Open a new terminal session and cd into the current folder."""
         if not self._connected():
-            toast(self.page, "Not connected.", error=True)
+            toast(self.page, self._t("Not connected."), error=True)
             return
         # Navigate to the terminal page and start a session
         self.ctx.navigate("terminal")
@@ -284,7 +284,7 @@ class FileBrowser:
             verb = "move" if self.st.clip_mode == "move" else "copy"
             self.paste_bar.content = ft.Row([
                 ft.Icon(ft.Icons.CONTENT_PASTE), ft.Text(f"{n} item(s) to {verb}", expand=True),
-                ft.TextButton("Paste here", on_click=lambda _: self._go(self.paste)),
+                ft.TextButton(self._t("Paste here"), on_click=lambda _: self._go(self.paste)),
                 ft.IconButton(ft.Icons.CLOSE, width=44, height=44,
                               on_click=lambda _: self._clear_clip())])
         # selection bar
@@ -294,11 +294,11 @@ class FileBrowser:
             one = k == 1
             ents_sel = list(self.selected.values())
             more = ft.PopupMenuButton(items=[
-                ft.PopupMenuItem(content=ft.Text("Rename"), icon=ft.Icons.EDIT,
+                ft.PopupMenuItem(content=ft.Text(self._t("Rename")), icon=ft.Icons.EDIT,
                                  on_click=lambda _: self._go(self.rename, ents_sel[0])),
-                ft.PopupMenuItem(content=ft.Text("Permissions"), icon=ft.Icons.LOCK,
+                ft.PopupMenuItem(content=ft.Text(self._t("Permissions")), icon=ft.Icons.LOCK,
                                  on_click=lambda _: self.chmod_dialog(ents_sel[0])),
-                ft.PopupMenuItem(content=ft.Text("Properties"), icon=ft.Icons.INFO,
+                ft.PopupMenuItem(content=ft.Text(self._t("Properties")), icon=ft.Icons.INFO,
                                  on_click=lambda _: self.properties(ents_sel[0]))]) if one else ft.Container()
             self.sel_bar.content = ft.Row([
                 ft.Text(f"{k} selected", expand=True),
@@ -334,11 +334,11 @@ class FileBrowser:
         if not e.is_dir:
             items.append(item("Open in editor", ft.Icons.EDIT_NOTE, lambda _: self._go(self.open_in_editor, e)))
             items.append(item("Download", ft.Icons.DOWNLOAD, lambda _: self.download([e])))
-        items += [item("Rename", ft.Icons.EDIT, lambda _: self._go(self.rename, e)),
+        items += [item(self._t("Rename"), ft.Icons.EDIT, lambda _: self._go(self.rename, e)),
                   item("Copy", ft.Icons.CONTENT_COPY, lambda _: self._set_clip([e], "copy")),
                   item("Move", ft.Icons.CONTENT_CUT, lambda _: self._set_clip([e], "move")),
-                  item("Permissions", ft.Icons.LOCK, lambda _: self.chmod_dialog(e)),
-                  item("Properties", ft.Icons.INFO, lambda _: self.properties(e)),
+                  item(self._t("Permissions"), ft.Icons.LOCK, lambda _: self.chmod_dialog(e)),
+                  item(self._t("Properties"), ft.Icons.INFO, lambda _: self.properties(e)),
                   item("Delete", ft.Icons.DELETE, lambda _: self.delete([e]))]
         return items
 
@@ -432,7 +432,7 @@ class FileBrowser:
         self.selected.clear()
         self.select_mode = False
         self._refresh_ui()
-        toast(self.page, "Open the destination folder and tap “Paste here”.")
+        toast(self.page, self._t("Open the destination folder and tap “Paste here”."))
 
     def _clear_clip(self) -> None:
         self.st.clip = []
@@ -468,7 +468,7 @@ class FileBrowser:
         if status == "refuse":
             toast(self.page, reason, error=True)
         elif status == "warn":
-            confirm(self.page, "Open anyway?", reason, lambda: self._launch(e.path), yes_label="Open")
+            confirm(self.page, self._t("Open anyway?"), reason, lambda: self._launch(e.path), yes_label=self._t("Open"))
         else:
             self._launch(e.path)
 
@@ -487,7 +487,7 @@ class FileBrowser:
             toast(self.page, err, error=True)
             return
         path = F.join(self.cwd, name)
-        if not await self.ctx.safe_confirm("Create", path):
+        if not await self.ctx.safe_confirm(self._t("Create"), path):
             return
         try:
             if await self.ctx.ssh.exists(path):
@@ -506,7 +506,7 @@ class FileBrowser:
         await self._create("New file", lambda p: self.ctx.ssh.write_file(p, b"", keep_perms=False))
 
     async def rename(self, e: RemoteEntry) -> None:
-        new = await self.ctx.ask_text("Rename", "New name", ok="Rename", value=e.name)
+        new = await self.ctx.ask_text(self._t("Rename"), self._t("New name"), ok=self._t("Rename"), value=e.name)
         if new is None or new.strip() == e.name:
             return
         new = new.strip()
@@ -514,7 +514,7 @@ class FileBrowser:
             toast(self.page, err, error=True)
             return
         dst = F.join(F.parent(e.path), new)
-        if not await self.ctx.safe_confirm("Rename", f"{e.name} → {new}"):
+        if not await self.ctx.safe_confirm(self._t("Rename"), f"{e.name} → {new}"):
             return
         try:
             if await self.ctx.ssh.exists(dst):
@@ -552,18 +552,18 @@ class FileBrowser:
             old_body = (f"Permanently delete {what}"
                         + (", including everything inside any folders" if has_dir else "")
                         + ". This CANNOT be undone (the recycle bin is bypassed).")
-            confirm(self.page, "Permanently delete?", old_body, lambda: self._delete_now(entries),
-                    typed="delete" if has_dir else None, yes_label="Delete forever")
+            confirm(self.page, self._t("Permanently delete?"), old_body, lambda: self._delete_now(entries),
+                    typed="delete" if has_dir else None, yes_label=self._t("Delete forever"))
 
         # Use a custom dialog so we can offer both options side by side.
         dlg = ft.AlertDialog(
             scrollable=True,
-            title=ft.Text("Delete?"), modal=True,
+            title=ft.Text(self._t("Delete?")), modal=True,
             content=ft.Container(width=360, content=ft.Text(body)),
             actions=[
-                ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
-                ft.TextButton("Delete forever", on_click=lambda _: (self.page.pop_dialog(), _permanent())),
-                ft.FilledTonalButton("Move to bin", on_click=lambda _: (self.page.pop_dialog(), _to_bin())),
+                ft.TextButton(self._t("Cancel"), on_click=lambda _: self.page.pop_dialog()),
+                ft.TextButton(self._t("Delete forever"), on_click=lambda _: (self.page.pop_dialog(), _permanent())),
+                ft.FilledTonalButton(self._t("Move to bin"), on_click=lambda _: (self.page.pop_dialog(), _to_bin())),
             ])
         self.page.show_dialog(dlg)
 
@@ -609,7 +609,7 @@ class FileBrowser:
     async def open_recycle_bin(self) -> None:
         """Show the recycle bin dialog: list, restore, permanently delete, empty."""
         if not self._connected():
-            toast(self.page, "Not connected.", error=True)
+            toast(self.page, self._t("Not connected."), error=True)
             return
         home = self.ctx.ssh.home if self._connected() else "/"
         try:
@@ -683,7 +683,7 @@ class FileBrowser:
         except TakError as ex:
             self._err(ex)
             return
-        toast(self.page, "Deleted forever.")
+        toast(self.page, self._t("Deleted forever."))
         try:
             r = await self.ctx.ssh.run(RB.list_command(home), timeout=15)
             entries = RB.parse_list(r.stdout)
@@ -694,22 +694,22 @@ class FileBrowser:
 
     async def _empty_bin(self) -> None:
         home = self.ctx.ssh.home if self._connected() else "/"
-        if not await self.ctx.safe_confirm("Empty Recycle Bin",
-                                          "Permanently delete everything in the bin? This cannot be undone."):
+        if not await self.ctx.safe_confirm(self._t("Empty Recycle Bin"),
+                                          self._t("Permanently delete everything in the bin? This cannot be undone.")):
             return
         try:
             await self.ctx.ssh.run(RB.empty_bin_command(home), timeout=30)
         except TakError as ex:
             self._err(ex)
             return
-        toast(self.page, "Recycle Bin emptied.")
+        toast(self.page, self._t("Recycle Bin emptied."))
         self.page.pop_dialog()
         self._render_recycle_bin_dialog([])
 
     # ------------------------------------------------------------ paste
     async def paste(self) -> None:
         clip, mode, ok, skipped = list(self.st.clip), self.st.clip_mode, 0, []
-        if not await self.ctx.safe_confirm("Paste", f"{len(clip)} item(s) ({mode}) into {self.cwd}"):
+        if not await self.ctx.safe_confirm(self._t("Paste"), f"{len(clip)} {self._t('item(s)')} ({mode}) {self._t('into')} {self.cwd}"):
             return
         for src in clip:
             name = F.basename(src)
@@ -788,14 +788,14 @@ class FileBrowser:
             self._err(e)
             return
         if not all_files:
-            toast(self.page, "Nothing to download (the folder is empty).")
+            toast(self.page, self._t("Nothing to download (the folder is empty)."))
             return
         # Confirm with a size summary so 5 GB doesn't surprise anyone on mobile data.
         summary = FT.truncate_for_display(
             FT.FolderTransferPlan("down", "summary", "", "", [], [
                 FT.TreeNode(rel=f"f{i}", is_dir=False, size=sz) for i, (_, _, sz) in enumerate(all_files)
             ], total_bytes))
-        if not await self.ctx.safe_confirm("Download",
+        if not await self.ctx.safe_confirm(self._t("Download"),
                                           f"{total_files} item(s) · {summary}\n→ {dest_dir}"):
             return
         # Create the local dirs first (mkdir is cheap; doing it up-front avoids races
@@ -841,7 +841,7 @@ class FileBrowser:
 
     async def upload(self) -> None:
         if not self._connected():
-            toast(self.page, "Not connected.", error=True)
+            toast(self.page, self._t("Not connected."), error=True)
             return
         try:
             if self._picker is None:
@@ -856,9 +856,9 @@ class FileBrowser:
             return
         items = [(f.name, f.path) for f in files if f.path]
         if not items:
-            toast(self.page, "The picker didn't provide file paths on this platform.", error=True)
+            toast(self.page, self._t("The picker didn't provide file paths on this platform."), error=True)
             return
-        if not await self.ctx.safe_confirm("Upload", f"{len(items)} file(s) to {self.cwd}"):
+        if not await self.ctx.safe_confirm(self._t("Upload"), f"{len(items)} {self._t('file(s)')} {self._t('to')} {self.cwd}"):
             return
         existing = {e.name for e in self.entries}
         conflicts = [n for n, _ in items if n in existing]
@@ -874,9 +874,9 @@ class FileBrowser:
             toast(self.page, f"Queued {len(items)} upload(s).")
 
         if conflicts:
-            confirm(self.page, "Overwrite existing files?",
+            confirm(self.page, self._t("Overwrite existing files?"),
                     f"{len(conflicts)} file(s) already exist here and will be replaced "
-                    f"(e.g. “{conflicts[0]}”).", queue, yes_label="Overwrite")
+                    f"(e.g. “{conflicts[0]}”).", queue, yes_label=self._t("Overwrite"))
         else:
             queue()
 
@@ -926,7 +926,7 @@ class FileBrowser:
             except OSError:
                 files.append(path)     # treat as file if we can't stat
         total = len(files) + len(folders)
-        if not await self.ctx.safe_confirm("Upload dropped items",
+        if not await self.ctx.safe_confirm(self._t("Upload dropped items"),
                                           f"{total} item(s) dropped onto {self.cwd}"
                                           + (f" ({len(folders)} folder{'s' if len(folders) != 1 else ''})" if folders else "")):
             return
@@ -979,7 +979,7 @@ class FileBrowser:
         rows: list[ft.Control] = [
             _kv("Name", e.name), _kv("Path", e.path), _kv("Type", kind), _kv("Size", size_txt),
             _kv("Owner", f"{e.owner or '?'}:{e.group or '?'}"),
-            _kv("Permissions", f"{F.perms_string(e.perms, e.is_dir, e.is_link)}  ({F.perms_octal(e.perms)})"),
+            _kv(self._t("Permissions"), f"{F.perms_string(e.perms, e.is_dir, e.is_link)}  ({F.perms_octal(e.perms)})"),
             _kv("Modified", fmt_mtime(e.mtime))]
 
         async def calc(_) -> None:
@@ -994,16 +994,16 @@ class FileBrowser:
             self.page.update()
 
         if e.is_dir:
-            rows.append(ft.TextButton("Calculate folder size", icon=ft.Icons.CALCULATE, on_click=calc))
+            rows.append(ft.TextButton(self._t("Calculate folder size"), icon=ft.Icons.CALCULATE, on_click=calc))
         self.page.show_dialog(ft.AlertDialog(
-                        title=ft.Text("Properties"), scrollable=True,
+                        title=ft.Text(self._t("Properties")), scrollable=True,
             content=ft.Container(width=340, content=ft.Column(rows, tight=True, spacing=theme.SPACE)),
-            actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
+            actions=[ft.TextButton(self._t("Close"), on_click=lambda _: self.page.pop_dialog())]))
 
     def chmod_dialog(self, e: RemoteEntry) -> None:
         mode = e.perms
         boxes: dict[tuple[int, int], ft.Checkbox] = {}
-        octal = ft.TextField(label="Octal", value=f"{mode & 0o777:03o}", width=100,
+        octal = ft.TextField(label=self._t("Octal"), value=f"{mode & 0o777:03o}", width=100,
                              keyboard_type=ft.KeyboardType.NUMBER, max_length=3)
         warn = ft.Text("", size=12, color=ft.Colors.ERROR)
 
@@ -1043,9 +1043,9 @@ class FileBrowser:
         async def apply(_) -> None:
             t = octal.value or ""
             if len(t) != 3 or any(ch not in "01234567" for ch in t):
-                toast(self.page, "Enter 3 octal digits, e.g. 644.", error=True)
+                toast(self.page, self._t("Enter 3 octal digits, e.g. 644."), error=True)
                 return
-            if not await self.ctx.safe_confirm("Change permissions", f"{e.name} → {t}"):
+            if not await self.ctx.safe_confirm(self._t("Change permissions"), f"{e.name} → {t}"):
                 return
             try:
                 await self.ctx.ssh.chmod(e.path, (mode & 0o7000) | int(t, 8))
@@ -1056,10 +1056,10 @@ class FileBrowser:
             await self.load(self.cwd)
 
         self.page.show_dialog(ft.AlertDialog(
-                        title=ft.Text(f"Permissions · {e.name}"), scrollable=True,
+                        title=ft.Text(f"{self._t('Permissions')} · {e.name}"), scrollable=True,
             content=ft.Container(width=340, content=ft.Column(grid + [octal, warn], tight=True)),
-            actions=[ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
-                     ft.FilledButton("Apply", on_click=apply)]))
+            actions=[ft.TextButton(self._t("Cancel"), on_click=lambda _: self.page.pop_dialog()),
+                     ft.FilledButton(self._t("Apply"), on_click=apply)]))
 
 
 def files_page(ctx: AppContext) -> ft.Control:

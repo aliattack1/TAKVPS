@@ -130,18 +130,18 @@ def settings_page(ctx: AppContext) -> ft.Control:
                 again = await ctx.ask_text("Protect credentials", "Repeat passphrase",
                                            password=True, ok="Enable") if pw else None
                 if not pw or len(pw) < 8 or pw != again:
-                    toast(page, "Passphrase too short or did not match.", error=True)
+                    toast(page, _t("Passphrase too short or did not match."), error=True)
                     sw.value = False
                 else:
                     if not await ctx.ensure_unlocked():
                         sw.value = False
                     else:
                         await asyncio.to_thread(ctx.vault.enable_passphrase, pw)
-                        toast(page, "Passphrase protection enabled. You'll be asked for it when needed.")
+                        toast(page, _t("Passphrase protection enabled. You'll be asked for it when needed."))
             else:
                 if await ctx.ensure_unlocked():
                     ctx.vault.disable_passphrase()
-                    toast(page, "Passphrase protection disabled.")
+                    toast(page, _t("Passphrase protection disabled."))
                 else:
                     sw.value = True
         except VaultError as ex:
@@ -161,12 +161,12 @@ def settings_page(ctx: AppContext) -> ft.Control:
                     toast(page, err or "Cancelled.", error=True)
                 sw.value = False
             else:
-                toast(page, "App lock enabled.")
+                toast(page, _t("App lock enabled."))
         else:
             cur = await ctx.ask_text("Turn off app lock", "Current PIN", password=True, ok="Turn off")
             if cur is None or not ctx.applock.disable(cur):
                 if cur is not None:
-                    toast(page, "Wrong PIN, or too many attempts. Try again shortly.", error=True)
+                    toast(page, _t("Wrong PIN, or too many attempts. Try again shortly."), error=True)
                 sw.value = True
         page.update()
 
@@ -185,7 +185,7 @@ def settings_page(ctx: AppContext) -> ft.Control:
 
     return ft.ListView(padding=theme.SPACE, spacing=theme.SPACE, controls=[
         h("Appearance"),
-        ft.Dropdown(label="Language / زبان", value=s.language,
+        ft.Dropdown(label=_t("Language / زبان"), value=s.language,
                     on_select=lambda e: (setattr(s, "language", e.control.value), apply_and_save()),
                     options=[ft.DropdownOption(key="en", text="English"),
                              ft.DropdownOption(key="fa", text="فارسی (Persian)")]),
@@ -287,7 +287,7 @@ def settings_page(ctx: AppContext) -> ft.Control:
             ft.FilledTonalButton(_t("App page"), icon=ft.Icons.INFO,
                                  on_click=lambda _: _myket_open(ctx)),
         ], spacing=8, scroll=ft.ScrollMode.AUTO),
-        ft.Text(f"TAKVPS v1.3.0 · {_t('Client-only SSH/VPS manager')}",
+        ft.Text(f"TAKVPS v1.4.5 · {_t('Client-only SSH/VPS manager')}",
                 size=11, opacity=0.5),
     ])
 
@@ -297,6 +297,9 @@ def settings_page(ctx: AppContext) -> ft.Control:
 def _export_bundle(ctx: AppContext) -> None:
     """Collect all app state, encrypt with a user passphrase, show the blob."""
     page = ctx.page
+    lang = ctx.store.data.language
+    from services.i18n import translate
+    _t = lambda s: translate(s, lang)  # noqa: E731
 
     async def do_export(passphrase: str) -> None:
         from services.app_bundle import collect_bundle, encrypt_bundle
@@ -309,12 +312,14 @@ def _export_bundle(ctx: AppContext) -> None:
                 vault=ctx.vault)
             blob = encrypt_bundle(bundle, passphrase)
         except Exception as e:  # noqa: BLE001
-            toast(page, f"Export failed: {e}", error=True)
+            toast(page, _t("Export failed:") + f" {e}", error=True)
             return
         # The passphrase dialog was already popped by _ask_passphrase's confirm().
         # Show the result in a NEW dialog.
         field = ft.TextField(value=blob, multiline=True, min_lines=6, max_lines=12,
-                              border_radius=8, text_size=10, font_family="monospace")
+                              border_radius=8,
+                              text_style=ft.TextStyle(font_family="monospace", size=10),
+                              read_only=True)
 
         async def copy_blob(_) -> None:
             try:
@@ -324,39 +329,50 @@ def _export_bundle(ctx: AppContext) -> None:
                     page.services.append(ctx._clip)
                     page.update()
                 await ctx._clip.set(blob)
-                toast(page, "Bundle copied to clipboard.")
+                toast(page, _t("Bundle copied to clipboard."))
             except Exception:  # noqa: BLE001
-                toast(page, "Couldn't access the clipboard.", error=True)
+                toast(page, _t("Couldn't access the clipboard."), error=True)
 
         page.show_dialog(ft.AlertDialog(
             scrollable=True,
-            title=ft.Text("Export bundle"), modal=True,
+            title=ft.Text(_t("Export bundle")), modal=True,
             content=ft.Container(width=min(420, (page.width or 400) - 32), content=ft.Column([
-                ft.Text(f"Encrypted bundle ({len(blob):,} chars). Copy this text and save it "
+                ft.Text(_t("Encrypted bundle ({n} chars). Copy this text and save it "
                          "somewhere safe — it contains all your decrypted secrets, encrypted "
-                         "with your passphrase.", size=12, opacity=0.7),
+                         "with your passphrase.").format(n=f"{len(blob):,}"),
+                         size=12, opacity=0.7),
                 field,
             ], tight=True, scroll=ft.ScrollMode.AUTO)),
             actions=[
-                ft.TextButton("Copy", on_click=lambda _: page.run_task(copy_blob)),
-                ft.TextButton("Close", on_click=lambda _: page.pop_dialog()),
+                # Fix: pass the click event `_` through to copy_blob so the
+                # async coroutine receives its expected positional argument.
+                # Without this, `page.run_task(copy_blob)` calls it with 0
+                # args but copy_blob is defined as `async def copy_blob(_)`,
+                # which raised TypeError: missing 1 required positional
+                # argument.
+                ft.TextButton(_t("Copy"), on_click=lambda e: page.run_task(copy_blob, e)),
+                ft.TextButton(_t("Close"), on_click=lambda _: page.pop_dialog()),
             ]))
 
-    _ask_passphrase(ctx, "Export bundle", do_export)
+    _ask_passphrase(ctx, _t("Export bundle"), do_export)
 
 
 def _import_bundle(ctx: AppContext) -> None:
     """Paste a bundle blob, enter the passphrase, restore everything."""
     page = ctx.page
-    blob_field = ft.TextField(hint_text="Paste the bundle text here…", multiline=True,
-                               min_lines=4, max_lines=8, border_radius=8, text_size=10,
-                               font_family="monospace")
+    lang = ctx.store.data.language
+    from services.i18n import translate
+    _t = lambda s: translate(s, lang)  # noqa: E731
+
+    blob_field = ft.TextField(hint_text=_t("Paste the bundle text here…"), multiline=True,
+                               min_lines=4, max_lines=8, border_radius=8,
+                               text_style=ft.TextStyle(font_family="monospace", size=10))
 
     async def do_import(passphrase: str) -> None:
         from services.app_bundle import decrypt_bundle, bundle_meta, apply_bundle
         blob = (blob_field.value or "").strip()
         if not blob:
-            toast(page, "Paste the bundle text first.", error=True)
+            toast(page, _t("Paste the bundle text first."), error=True)
             return
         try:
             if not await ctx.ensure_unlocked():
@@ -367,9 +383,10 @@ def _import_bundle(ctx: AppContext) -> None:
             return
         meta = bundle_meta(bundle)
         # Show a preview before applying.
-        if not await ctx.safe_confirm("Import bundle",
-                                       f"{meta.summary()}\n\nThis will ADD to your existing data "
-                                       "(nothing is deleted). Continue?"):
+        if not await ctx.safe_confirm(_t("Import bundle"),
+                                       f"{meta.summary()}\n\n" +
+                                       _t("This will ADD to your existing data "
+                                          "(nothing is deleted). Continue?")):
             return
         try:
             counts = apply_bundle(
@@ -378,7 +395,7 @@ def _import_bundle(ctx: AppContext) -> None:
                 ai_profiles_store=ctx.ai_profiles, settings_store=ctx.store,
                 vault=ctx.vault)
         except Exception as e:  # noqa: BLE001
-            toast(page, f"Import failed: {e}", error=True)
+            toast(page, _t("Import failed:") + f" {e}", error=True)
             return
         # Only pop if there's a dialog to pop (safe_confirm may have already been popped)
         try:
@@ -386,42 +403,46 @@ def _import_bundle(ctx: AppContext) -> None:
         except Exception:
             pass
         parts = [f"{v} {k}" for k, v in counts.items() if v]
-        toast(page, f"Imported: {' · '.join(parts)}")
+        toast(page, _t("Imported:") + f" {' · '.join(parts)}")
         ctx.refresh_ui()
 
-    _ask_passphrase(ctx, "Import bundle", do_import, extra_content=blob_field)
+    _ask_passphrase(ctx, _t("Import bundle"), do_import, extra_content=blob_field)
 
 
 def _ask_passphrase(ctx: AppContext, title: str, on_ok, extra_content: ft.Control = None) -> None:
     """Show a dialog asking for a passphrase, then call on_ok(passphrase)."""
     page = ctx.page
-    pw_field = ft.TextField(label="Passphrase", password=True, can_reveal_password=True,
+    lang = ctx.store.data.language
+    from services.i18n import translate
+    _t = lambda s: translate(s, lang)  # noqa: E731
+
+    pw_field = ft.TextField(label=_t("Passphrase"), password=True, can_reveal_password=True,
                              autofocus=True, border_radius=8, expand=True)
     col_controls: list[ft.Control] = [pw_field]
     if extra_content:
         col_controls.append(extra_content)
-    col_controls.append(ft.Text("Choose a strong passphrase. There is no recovery if you forget it.",
+    col_controls.append(ft.Text(_t("Choose a strong passphrase. There is no recovery if you forget it."),
                                  size=11, opacity=0.6))
 
     async def confirm(_=None) -> None:
         pw = pw_field.value or ""
         if len(pw) < 4:
-            toast(page, "Passphrase must be at least 4 characters.", error=True)
+            toast(page, _t("Passphrase must be at least 4 characters."), error=True)
             return
         page.pop_dialog()
         try:
             await on_ok(pw)
         except Exception as e:  # noqa: BLE001
-            toast(page, f"Error: {e}", error=True)
+            toast(page, _t("Error:") + f" {e}", error=True)
 
     pw_field.on_submit = confirm
     page.show_dialog(ft.AlertDialog(
         scrollable=True,
-        title=ft.Text(title), modal=True,
+        title=ft.Text(title, weight=ft.FontWeight.W_600), modal=True,
         content=ft.Container(width=min(380, (page.width or 400) - 32), content=ft.Column(col_controls, tight=True, spacing=8)),
         actions=[
-            ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
-            ft.FilledButton("Continue", on_click=lambda _: page.run_task(confirm)),
+            ft.TextButton(_t("Cancel"), on_click=lambda _: page.pop_dialog()),
+            ft.FilledButton(_t("Continue"), on_click=lambda _: page.run_task(confirm)),
         ]))
 
 
@@ -430,23 +451,29 @@ def _ask_passphrase(ctx: AppContext, title: str, on_ok, extra_content: ft.Contro
 def _myket_check_update(ctx: AppContext) -> None:
     """Open Myket's update check dialog."""
     from services.myket import check_for_update
+    from services.i18n import translate
+    _t = lambda s: translate(s, ctx.store.data.language)  # noqa: E731
     if not check_for_update(ctx.page):
-        toast(ctx.page, "Couldn't open Myket. Is it installed?", error=True)
+        toast(ctx.page, _t("Couldn't open Myket. Is it installed?"), error=True)
 
 
 def _myket_rate(ctx: AppContext) -> None:
     """Open the Myket rating/review flow. Asks permission first."""
+    from services.i18n import translate
+    _t = lambda s: translate(s, ctx.store.data.language)  # noqa: E731
     def do_rate():
         from services.myket import open_rating
         if not open_rating(ctx.page):
-            toast(ctx.page, "Couldn't open Myket. Is it installed?", error=True)
-    confirm(ctx.page, "Rate on Myket?",
-            "This will open Myket's rating page for TAKVPS. You can rate and review the app there.",
-            do_rate, yes_label="Open Myket")
+            toast(ctx.page, _t("Couldn't open Myket. Is it installed?"), error=True)
+    confirm(ctx.page, _t("Rate on Myket?"),
+            _t("This will open Myket's rating page for TAKVPS. You can rate and review the app there."),
+            do_rate, yes_label=_t("Open Myket"))
 
 
 def _myket_open(ctx: AppContext) -> None:
     """Open the app's Myket details page."""
     from services.myket import open_app_page
+    from services.i18n import translate
+    _t = lambda s: translate(s, ctx.store.data.language)  # noqa: E731
     if not open_app_page(ctx.page):
-        toast(ctx.page, "Couldn't open Myket. Is it installed?", error=True)
+        toast(ctx.page, _t("Couldn't open Myket. Is it installed?"), error=True)

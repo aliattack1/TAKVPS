@@ -305,7 +305,7 @@ class DockerView:
         self.page.show_dialog(ft.AlertDialog(
                         title=ft.Text(title, no_wrap=True), scrollable=True,
             content=ft.Container(width=min(380, (page.width or 400) - 32), content=ft.Text(body or "(empty)", font_family="monospace", size=11, selectable=True)),
-            actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
+            actions=[ft.TextButton(self._t("Close"), on_click=lambda _: self.page.pop_dialog())]))
 
     async def install(self) -> None:
         if await run_install_flow(self.ctx, "docker"):
@@ -347,7 +347,7 @@ class DockerView:
     async def shell_into(self, c: D.Container) -> None:
         await self.ctx.terminal.ensure_session()
         if not (self.ctx.terminal.session and self.ctx.terminal.session.alive):
-            toast(self.page, "Couldn't open a terminal session.", error=True)
+            toast(self.page, self._t("Couldn't open a terminal session."), error=True)
             return
         self.ctx.terminal.send(("sudo " if self.sudo else "") + D.exec_command(c.name) + "\r")
         self.ctx.navigate("terminal")

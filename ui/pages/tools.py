@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import flet as ft
 
+from services.i18n import translate
 from .. import theme
 from ..context import AppContext
 
@@ -40,12 +41,14 @@ TOOLS = [
 
 
 def tools_page(ctx: AppContext) -> ft.Control:
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     tiles = [ft.Container(
         width=160, border_radius=theme.RADIUS, padding=theme.SPACE, ink=True,
         bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH, on_click=lambda _, k=key: ctx.navigate(k),
         content=ft.Column([ft.Icon(icon, size=28, color=ft.Colors.PRIMARY),
-                           ft.Text(label, weight=ft.FontWeight.W_600),
-                           ft.Text(desc, size=11, opacity=0.7)], spacing=4)) for key, label, icon, desc in TOOLS]
+                           ft.Text(_t(label), weight=ft.FontWeight.W_600),
+                           ft.Text(_t(desc), size=11, opacity=0.7)], spacing=4)) for key, label, icon, desc in TOOLS]
     # config diff tool (opens a dialog, not a page)
     def open_diff(_):
         from .config_diff import open_diff_dialog
@@ -54,9 +57,9 @@ def tools_page(ctx: AppContext) -> ft.Control:
         width=160, border_radius=theme.RADIUS, padding=theme.SPACE, ink=True,
         bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH, on_click=open_diff,
         content=ft.Column([ft.Icon(ft.Icons.COMPARE_ARROWS, size=28, color=ft.Colors.PRIMARY),
-                           ft.Text("Compare files", weight=ft.FontWeight.W_600),
-                           ft.Text("Diff a file between two servers", size=11, opacity=0.7)], spacing=4))
+                           ft.Text(_t("Compare files"), weight=ft.FontWeight.W_600),
+                           ft.Text(_t("Diff a file between two servers"), size=11, opacity=0.7)], spacing=4))
     return ft.ListView(padding=theme.SPACE, spacing=theme.SPACE, controls=[
-        ft.Text("Tools", size=22, weight=ft.FontWeight.W_600),
+        ft.Text(_t("Tools"), size=22, weight=ft.FontWeight.W_600),
         ft.Row(tiles + [diff_tile], wrap=True, spacing=theme.SPACE, run_spacing=theme.SPACE),
     ])

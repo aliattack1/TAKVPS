@@ -14,6 +14,7 @@ import flet as ft
 from core.errors import TakError
 from services import editor as E
 from services import files as F
+from services.i18n import translate
 from .. import theme
 from ..components.common import confirm, toast
 from ..context import AppContext
@@ -46,6 +47,9 @@ class Tab:
 class EditorController:
     def __init__(self, ctx: AppContext) -> None:
         self.ctx, self.page, self.s = ctx, ctx.page, ctx.store.data
+        # Persian translation helper bound to the user's language.
+        self._lang = ctx.store.data.language
+        self._t = lambda s: translate(s, self._lang)  # noqa: E731
         self.tabs: list[Tab] = []
         self.active = 0
         self._next = 1
@@ -90,7 +94,7 @@ class EditorController:
         text, enc, eol = E.decode_bytes(data)
         self.new_tab(posixpath.basename(path), path, text, encoding=enc, eol=eol, mtime=st.mtime or 0)
         if enc == "latin-1":
-            toast(self.page, "Not valid UTF-8 — opened as Latin-1 and will be saved the same way.")
+            toast(self.page, self._t("Not valid UTF-8 — opened as Latin-1 and will be saved the same way."))
         return True
 
     async def open_with(self, path: str, text: Optional[str] = None, *, sudo_write: bool = False,
@@ -125,8 +129,9 @@ class EditorController:
             self._render_all()
             self.page.update()
         if t.dirty:
-            confirm(self.page, "Discard changes?", f"“{t.name}” has unsaved changes.", do,
-                    yes_label="Discard")
+            confirm(self.page, self._t("Discard changes?"),
+                    self._t("“{name}” has unsaved changes.").format(name=t.name), do,
+                    yes_label=self._t("Discard"))
         else:
             do()
 
@@ -150,7 +155,8 @@ class EditorController:
         if not t:
             return
         start = posixpath.dirname(t.path) if t.path else (self.ctx.files_state.path or self.ctx.ssh.home)
-        path = await self.ctx.ask_text("Save as", "Full path on the server", ok="Save",
+        path = await self.ctx.ask_text(self._t("Save as"), self._t("Full path on the server"),
+                                       ok=self._t("Save"),
                                        value=posixpath.join(start, t.name))
         if path is None:
             return
@@ -164,21 +170,23 @@ class EditorController:
             toast(self.page, e.message, error=True)
             return
         if exists and path != t.path and not await self.ctx.ask_yes_no(
-                "Overwrite?", f"“{path}” already exists and will be replaced.", "Overwrite"):
+                self._t("Overwrite?"),
+                self._t("“{path}” already exists and will be replaced.").format(path=path),
+                self._t("Overwrite")):
             return
         await self._write(t, path, check_conflict=False)
 
     async def _write(self, t: Tab, path: str, check_conflict: bool) -> None:
         ssh = self.ctx.ssh
-        if not await self.ctx.safe_confirm("Save file", path):
+        if not await self.ctx.safe_confirm(self._t("Save file"), path):
             return
         try:
             if check_conflict and t.mtime:
                 cur = (await ssh.stat(path)).mtime or 0
                 if cur != t.mtime and not await self.ctx.ask_yes_no(
-                        "File changed on the server",
-                        "Someone modified this file after you opened it. Overwrite their changes?",
-                        "Overwrite"):
+                        self._t("File changed on the server"),
+                        self._t("Someone modified this file after you opened it. Overwrite their changes?"),
+                        self._t("Overwrite")):
                     return
             data = E.encode_text(t.text, t.encoding, t.eol)
             if t.sudo_write:
@@ -196,7 +204,7 @@ class EditorController:
             return
         t.path, t.name, t.original = path, posixpath.basename(path), t.text
         t.lang = E.language_for(t.name)
-        toast(self.page, f"Saved {t.name}")
+        toast(self.page, self._t("Saved {name}").format(name=t.name))
         self._render_all()
         self.page.update()
         if t.after_save:
@@ -222,8 +230,8 @@ class EditorController:
             self._render_all()
             self.page.update()
         if t.dirty:
-            confirm(self.page, "Reload from server?", "Your unsaved changes will be lost.", do,
-                    yes_label="Reload")
+            confirm(self.page, self._t("Reload from server?"), self._t("Your unsaved changes will be lost."), do,
+                    yes_label=self._t("Reload"))
         else:
             await do()
 
@@ -247,14 +255,15 @@ class EditorController:
         ms = self._matches()
         if not ms:
             if not self.find_info.value.startswith("Invalid"):
-                self.find_info.value = "No matches"
+                self.find_info.value = self._t("No matches")
             self.cur_match = None
             self.page.update()
             return
         nxt = next((m for m in ms if m[0] >= self.cursor), ms[0])
         self.cur_match, self.cursor = nxt, nxt[1]
         line, col = E.line_col(t.text, nxt[0])
-        self.find_info.value = f"{ms.index(nxt) + 1} of {len(ms)} · line {line}"
+        self.find_info.value = (f"{ms.index(nxt) + 1} {self._t('of')} {len(ms)} · "
+                                f"{self._t('Ln')} {line}")
         if self._tf is not None:
             try:
                 self._tf.selection = ft.TextSelection(base_offset=nxt[0], extent_offset=nxt[1])
@@ -298,7 +307,7 @@ class EditorController:
         if n:
             self._set_text(new)
             self._render_area()
-        self.find_info.value = f"Replaced {n}"
+        self.find_info.value = self._t("Replaced {n}").format(n=n)
         self.page.update()
 
     # ================================================================ UI
@@ -307,34 +316,34 @@ class EditorController:
         self.tabs_row = ft.Row(scroll=ft.ScrollMode.AUTO, spacing=4)
         self.area = ft.Container(expand=True, padding=ft.Padding.symmetric(horizontal=4))
         self.status = ft.Text("", size=11, opacity=0.7)
-        self.find_q = ft.TextField(hint_text="Find", dense=True, expand=True, on_submit=self.find_next,
+        self.find_q = ft.TextField(hint_text=self._t("Find"), dense=True, expand=True, on_submit=self.find_next,
                                    on_change=lambda _: setattr(self, "cur_match", None))
-        self.find_r = ft.TextField(hint_text="Replace with", dense=True, expand=True)
+        self.find_r = ft.TextField(hint_text=self._t("Replace with"), dense=True, expand=True)
         self.chk_case = ft.Checkbox(label="Aa", value=False)
         self.chk_re = ft.Checkbox(label=".*", value=False)
         self.find_info = ft.Text("", size=11, opacity=0.7)
         self.find_bar = ft.Container(visible=self.find_open, padding=theme.SPACE,
                                      bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH, content=ft.Column([
-            ft.Row([self.find_q, ft.IconButton(ft.Icons.ARROW_DOWNWARD, tooltip="Next", width=44, height=44,
+            ft.Row([self.find_q, ft.IconButton(ft.Icons.ARROW_DOWNWARD, tooltip=self._t("Next"), width=44, height=44,
                                                on_click=self.find_next)]),
-            ft.Row([self.find_r, ft.TextButton("Replace", on_click=self.replace_one),
-                    ft.TextButton("All", on_click=self.replace_every)]),
+            ft.Row([self.find_r, ft.TextButton(self._t("Replace"), on_click=self.replace_one),
+                    ft.TextButton(self._t("All"), on_click=self.replace_every)]),
             ft.Row([self.chk_case, self.chk_re, self.find_info], spacing=theme.SPACE)], spacing=4))
 
         def ib(icon, tip, fn):
             return ft.IconButton(icon, tooltip=tip, on_click=fn, width=44, height=44)
 
         toolbar = ft.Row([
-            ib(ft.Icons.NOTE_ADD, "New file", lambda _: self._new()),
-            ib(ft.Icons.SAVE, "Save", lambda _: self.page.run_task(self.save)),
-            ib(ft.Icons.SAVE_AS, "Save as", lambda _: self.page.run_task(self.save_as)),
-            ib(ft.Icons.REFRESH, "Reload from server", lambda _: self.page.run_task(self.reload)),
-            ib(ft.Icons.FIND_REPLACE, "Find & replace", lambda _: self._toggle_find()),
-            ib(ft.Icons.PALETTE, "Edit / highlighted view", lambda _: self._toggle_view()),
-            ib(ft.Icons.TEXT_DECREASE, "Smaller text", lambda _: self._font(-1)),
-            ib(ft.Icons.TEXT_INCREASE, "Larger text", lambda _: self._font(+1)),
-            ib(ft.Icons.WRAP_TEXT, "Wrap lines (highlighted view)", lambda _: self._toggle_wrap()),
-            ib(ft.Icons.FORMAT_LIST_NUMBERED, "Toggle line numbers", lambda _: self._toggle_line_numbers()),
+            ib(ft.Icons.NOTE_ADD, self._t("New file"), lambda _: self._new()),
+            ib(ft.Icons.SAVE, self._t("Save"), lambda _: self.page.run_task(self.save)),
+            ib(ft.Icons.SAVE_AS, self._t("Save as"), lambda _: self.page.run_task(self.save_as)),
+            ib(ft.Icons.REFRESH, self._t("Reload from server"), lambda _: self.page.run_task(self.reload)),
+            ib(ft.Icons.FIND_REPLACE, self._t("Find & replace"), lambda _: self._toggle_find()),
+            ib(ft.Icons.PALETTE, self._t("Edit / highlighted view"), lambda _: self._toggle_view()),
+            ib(ft.Icons.TEXT_DECREASE, self._t("Smaller text"), lambda _: self._font(-1)),
+            ib(ft.Icons.TEXT_INCREASE, self._t("Larger text"), lambda _: self._font(+1)),
+            ib(ft.Icons.WRAP_TEXT, self._t("Wrap lines (highlighted view)"), lambda _: self._toggle_wrap()),
+            ib(ft.Icons.FORMAT_LIST_NUMBERED, self._t("Toggle line numbers"), lambda _: self._toggle_line_numbers()),
         ], scroll=ft.ScrollMode.AUTO, spacing=0)
         self._render_all()
         self._mounted = True
@@ -372,7 +381,7 @@ class EditorController:
         if self.view_mode == "view":
             self._render_area()
         self.page.update()
-        toast(self.page, "Wrap applies to the highlighted view; the edit box always wraps.")
+        toast(self.page, self._t("Wrap applies to the highlighted view; the edit box always wraps."))
 
     def _toggle_line_numbers(self) -> None:
         """toggle line numbers in the highlighted view."""
@@ -402,8 +411,8 @@ class EditorController:
         if t:
             line, col = E.line_col(t.text, self.cursor)
             self.status.value = (f"{t.lang} · {t.encoding} · {'CRLF' if t.eol != chr(10) else 'LF'} · "
-                                 f"{t.text.count(chr(10)) + 1} lines · Ln {line}, Col {col}"
-                                 + (f" · {t.path}" if t.path else " · unsaved file"))
+                                 f"{t.text.count(chr(10)) + 1} {self._t('lines')} · {self._t('Ln')} {line}, {self._t('Col')} {col}"
+                                 + (f" · {t.path}" if t.path else f" · {self._t('unsaved file')}"))
         else:
             self.status.value = ""
 
@@ -414,9 +423,9 @@ class EditorController:
         if not t:
             self.area.content = ft.Column([
                 ft.Icon(ft.Icons.EDIT_NOTE, size=56, opacity=0.5),
-                ft.Text("No files open", size=18, weight=ft.FontWeight.W_600),
-                ft.Text("Open a text file from Files, or start a new one.", opacity=0.7),
-                ft.FilledButton("New file", icon=ft.Icons.NOTE_ADD, on_click=lambda _: self._new())],
+                ft.Text(self._t("No files open"), size=18, weight=ft.FontWeight.W_600),
+                ft.Text(self._t("Open a text file from Files, or start a new one."), opacity=0.7),
+                ft.FilledButton(self._t("New file"), icon=ft.Icons.NOTE_ADD, on_click=lambda _: self._new())],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER, alignment=ft.MainAxisAlignment.CENTER,
                 expand=True)
             return
@@ -446,7 +455,8 @@ class EditorController:
                         font_family="monospace", size=s.editor_font_size, no_wrap=not s.editor_wrap,
                         expand=s.editor_wrap, selectable=True))
         if len(lines) > MAX_VIEW_LINES:
-            rows.append(ft.Text(f"Showing first {MAX_VIEW_LINES} of {len(lines)} lines.", size=11, opacity=0.6))
+            rows.append(ft.Text(self._t("Showing first {n} of {m} lines.").format(n=MAX_VIEW_LINES, m=len(lines)),
+                                size=11, opacity=0.6))
         self.area.content = ft.ListView(rows, spacing=0, expand=True)
 
     def _on_text(self, e) -> None:

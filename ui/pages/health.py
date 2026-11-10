@@ -6,6 +6,7 @@ import flet as ft
 from core.errors import TakError
 from services import health as H
 from services import packages as P
+from services.i18n import translate
 from .. import theme
 from ..components.common import toast
 from ..components.gauge import RingGauge
@@ -15,32 +16,37 @@ from ..context import AppContext
 class HealthView:
     def __init__(self, ctx: AppContext) -> None:
         self.ctx, self.page = ctx, ctx.page
-        self.gauge = RingGauge("Health", size=140)
+        # Persian translation helper bound to the user's language.
+        self._lang = ctx.store.data.language
+        self._t = lambda s: translate(s, self._lang)  # noqa: E731
+        _t = self._t
+        self.gauge = RingGauge(_t("Health"), size=140)
         self.rating = ft.Text("", size=18, weight=ft.FontWeight.W_600)
         self.note = ft.Text("", size=11, opacity=0.7)
         self.progress = ft.ProgressBar(visible=False)
         self.list = ft.Column(spacing=8)
         self.control = ft.ListView(padding=theme.SPACE, spacing=theme.SPACE, controls=[
-            ft.Row([ft.Text("Health score", size=22, weight=ft.FontWeight.W_600, expand=True),
-                    ft.IconButton(ft.Icons.REFRESH, tooltip="Recheck", width=44, height=44,
+            ft.Row([ft.Text(_t("Health score"), size=22, weight=ft.FontWeight.W_600, expand=True),
+                    ft.IconButton(ft.Icons.REFRESH, tooltip=_t("Recheck"), width=44, height=44,
                                   on_click=lambda _: self.page.run_task(self.load))]),
             self.progress, ft.Row([self.gauge.control], alignment=ft.MainAxisAlignment.CENTER),
             ft.Row([self.rating], alignment=ft.MainAxisAlignment.CENTER), self.note, self.list])
 
     async def load(self) -> None:
         ctx = self.ctx
+        _t = self._t
         if ctx.ssh.status.value != "connected":
-            self.note.value = "Not connected."
+            self.note.value = _t("Not connected.")
             self.page.update()
             return
         self.progress.visible = True
-        self.note.value = "Checking disk, memory, load, services…"
+        self.note.value = _t("Checking disk, memory, load, services…")
         self.page.update()
         try:
             h = H.parse_health((await ctx.ssh.run(H.HEALTH_CMD, timeout=25)).stdout)
             pm = P.detect(ctx.sysinfo.package_manager) if ctx.sysinfo else None
             if pm:
-                self.note.value = "Checking for updates (can take a moment)…"
+                self.note.value = _t("Checking for updates (can take a moment)…")
                 self.page.update()
                 ups = P.parse_upgradable(pm, (await ctx.ssh.run(P.script_upgradable(pm), timeout=120)).stdout)
                 h.security = sum(1 for u in ups if u.security)
@@ -53,10 +59,10 @@ class HealthView:
             return
         score, issues = H.compute(h)
         lvl = "ok" if score >= 90 else "warn" if score >= 60 else "crit"
-        self.gauge.set(score, lvl, "out of 100")
+        self.gauge.set(score, lvl, _t("out of 100"))
         self.rating.value = H.rating(score)
-        self.note.value = ("Nothing is hurting this server's score. 🎉" if not issues else
-                           "Tap an item to fix it. The score is a rough guide computed on your phone from live data.")
+        self.note.value = (_t("Nothing is hurting this server's score. 🎉") if not issues else
+                           _t("Tap an item to fix it. The score is a rough guide computed on your phone from live data."))
         self.list.controls = [ft.Container(
             border_radius=theme.RADIUS, padding=theme.SPACE, ink=True, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
             on_click=lambda _, k=i.fix: ctx.navigate(k),

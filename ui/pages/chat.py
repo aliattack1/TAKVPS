@@ -45,6 +45,9 @@ class ChatController:
         self.task: Optional[asyncio.Task] = None
         self.running = False
         self.pending_prefill: Optional[str] = None
+        # Persian translation helper.
+        self._lang = ctx.store.data.language
+        self._t = lambda s: translate(s, self._lang)  # noqa: E731
         # tool results waiting to be sent in the next request.
         # Each entry is a provider-shaped dict ready for the API call.
         self._tool_result_msgs: list[dict] = []
@@ -256,7 +259,7 @@ class ChatController:
     async def _reply(self) -> Optional[str]:
         p = self.profile()
         if p is None:
-            toast(self.page, "Set up an AI profile first.", error=True)
+            toast(self.page, self._t("Set up an AI profile first."), error=True)
             open_profiles(self.ctx)
             return None
         try:
@@ -300,7 +303,7 @@ class ChatController:
             self.msgs.remove(m)
             if self.view:
                 self.view.remove(m)
-            toast(self.page, "The model returned an empty reply.", error=True)
+            toast(self.page, self._t("The model returned an empty reply."), error=True)
             return None
         if self.view:
             self.view.refresh_msg(m)
@@ -316,7 +319,7 @@ class ChatController:
         """
         p = self.profile()
         if p is None:
-            toast(self.page, "Set up an AI profile first.", error=True)
+            toast(self.page, self._t("Set up an AI profile first."), error=True)
             open_profiles(self.ctx)
             return None, []
         try:
@@ -370,7 +373,7 @@ class ChatController:
             self.msgs.remove(m)
             if self.view:
                 self.view.remove(m)
-            toast(self.page, "The model returned an empty reply.", error=True)
+            toast(self.page, self._t("The model returned an empty reply."), error=True)
             return None, []
         # store the structured tool calls on the Msg so the
         # UI's "Show raw tool calls" toggle can render them. We convert the
@@ -413,20 +416,20 @@ class ChatController:
 
     async def run_clicked(self, cmd: str) -> None:
         if self.ctx.ssh.status.value != "connected":
-            toast(self.page, "Not connected.", error=True)
+            toast(self.page, self._t("Not connected."), error=True)
             return
         if await self.gate(cmd, auto_safe=True):
             self._add(await self.execute(cmd, ai=False))
 
     async def terminal_clicked(self, cmd: str, close: Optional[Callable[[], None]]) -> None:
         if self.ctx.ssh.status.value != "connected":
-            toast(self.page, "Not connected.", error=True)
+            toast(self.page, self._t("Not connected."), error=True)
             return
         if not await self.gate(cmd, auto_safe=True):
             return
         await self.ctx.terminal.ensure_session()
         if not (self.ctx.terminal.session and self.ctx.terminal.session.alive):
-            toast(self.page, "Couldn't open a terminal session.", error=True)
+            toast(self.page, self._t("Couldn't open a terminal session."), error=True)
             return
         a = self.ctx.active
         self.ctx.activity.add(a.id if a else "", a.name if a else "", redact(cmd)[0], None, "user",
@@ -443,7 +446,7 @@ class ChatController:
             if self.view:
                 self.view.rebuild()
         confirm(self.page, "Clear this chat?", "The history for this server will be deleted from this device.",
-                do, yes_label="Clear")
+                do, yes_label=self._t("Clear"), lang=self._lang)
 
     async def quick(self, prompt: Optional[str]) -> None:
         if prompt is None:                                         # "What does this command do?"
@@ -454,7 +457,7 @@ class ChatController:
                     if cmd:
                         break
             if not cmd:
-                toast(self.page, "Type or paste a command in the box first.")
+                toast(self.page, self._t("Type or paste a command in the box first."))
                 return
             await self.send("What does this command do? Explain each part and flag any risks:\n\n"
                             f"```bash\n{cmd}\n```")
@@ -464,7 +467,7 @@ class ChatController:
         tail = self.ctx.terminal.tail(60)
         if not tail.strip():
             self.prefill(prompt + "\n\n```\n(paste the text here)\n```")
-            toast(self.page, "No terminal output yet — paste the text into the message.")
+            toast(self.page, self._t("No terminal output yet — paste the text into the message."))
             return
         await self.send(f"{prompt}\n\n```\n{tail}\n```")
 
@@ -557,8 +560,7 @@ class ChatView:
         self.list.controls = []
         if not self.ctl.msgs:
             self.list.controls.append(ft.Container(padding=20, content=ft.Text(
-                "Ask anything about this server, or use a quick action below. "
-                "Suggested commands show their risk level before you run them.", opacity=0.7)))
+                self._t("Ask anything about this server, or use a quick action below. Suggested commands show their risk level before you run them."), opacity=0.7)))
         for m in self.ctl.msgs:
             self._append(m)
         self._update_usage()
@@ -637,7 +639,7 @@ class ChatView:
         if msg_index >= 0 and self._can_branch(msg_index):
             parts.append(ft.Row([
                 hint,
-                ft.TextButton("Branch from here", icon=ft.Icons.CALL_SPLIT, height=32,
+                ft.TextButton(self._t("Branch from here"), icon=ft.Icons.CALL_SPLIT, height=32,
                                on_click=lambda _, i=msg_index: self._branch(i)),
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN))
         else:
@@ -666,11 +668,11 @@ class ChatView:
             except IndexError as e:
                 toast(self.page, str(e), error=True)
 
-        confirm(self.page, "Branch from here?",
+        confirm(self.page, self._t("Branch from here?"),
                 f"This keeps everything up to and including this reply:\n\n"
                 f"\"{last_msg}\"\n\n{summary}.\n"
                 f"The discarded messages are removed from this chat.",
-                do_branch, yes_label="Branch")
+                do_branch, yes_label=self._t("Branch"), lang=self._lang)
 
     def _tool_calls_block(self, m: Msg) -> ft.Control:
         """a collapsible block showing the raw tool-call payloads."""
@@ -708,7 +710,7 @@ class ChatView:
         ctl = self.ctl
         rows: list[ft.Control] = [
             ft.Row([ft.Text(b.lang or "code", size=11, opacity=0.6, expand=True),
-                    ft.IconButton(ft.Icons.COPY, icon_size=18, width=40, height=40, tooltip="Copy",
+                    ft.IconButton(ft.Icons.COPY, icon_size=18, width=40, height=40, tooltip=self._t("Copy"),
                                   on_click=lambda _, t=b.content: self.page.run_task(ctl.ctx.terminal.copy_text, t))],
                    vertical_alignment=ft.CrossAxisAlignment.CENTER),
             ft.Text(b.content, font_family="monospace", size=12, selectable=True)]
@@ -722,11 +724,11 @@ class ChatView:
                 ft.Text(r.explanation + ("  ·  may print secrets" if r.sensitive else ""), size=11, expand=True)],
                 vertical_alignment=ft.CrossAxisAlignment.CENTER))
             rows.append(ft.Row([
-                ft.FilledTonalButton("Run", icon=ft.Icons.PLAY_ARROW, height=40,
+                ft.FilledTonalButton(self._t("Run"), icon=ft.Icons.PLAY_ARROW, height=40,
                                      on_click=lambda _, c=cmd: self.page.run_task(ctl.run_clicked, c)),
-                ft.TextButton("Terminal", icon=ft.Icons.TERMINAL, height=40,
+                ft.TextButton(self._t("Terminal"), icon=ft.Icons.TERMINAL, height=40,
                               on_click=lambda _, c=cmd: self.page.run_task(ctl.terminal_clicked, c, self.on_close)),
-                ft.TextButton("Snippet", icon=ft.Icons.BOOKMARK_ADD, height=40,
+                ft.TextButton(self._t("Snippet"), icon=ft.Icons.BOOKMARK_ADD, height=40,
                               on_click=lambda _, c=cmd: ctl.ctx.save_snippet(c))],
                 scroll=ft.ScrollMode.AUTO, spacing=0))
         return ft.Container(ft.Column(rows, spacing=4), padding=8, border_radius=8,
@@ -756,20 +758,20 @@ class ChatView:
     async def _preview(self) -> None:
         text, n = await self.ctl.preview()
         self.page.show_dialog(ft.AlertDialog(
-                        title=ft.Text("What will be sent"), scrollable=True,
+                        title=ft.Text(self._t("What will be sent")), scrollable=True,
             content=ft.Container(width=340, content=ft.Column([
                 ft.Text(f"{n} secret(s) masked before sending." if n else "No secrets detected.", size=12),
                 ft.Text(text, size=11, font_family="monospace", selectable=True)], tight=True)),
-            actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
+            actions=[ft.TextButton(self._t("Close"), on_click=lambda _: self.page.pop_dialog())]))
 
     def _export(self) -> None:
         self.page.show_dialog(ft.AlertDialog(
             scrollable=True,
-            title=ft.Text("Export chat"), content=ft.Column([
-                ft.Text("Long-press to select and copy. This is the unredacted local history.", size=12),
+            title=ft.Text(self._t("Export chat")), content=ft.Column([
+                ft.Text(self._t("Long-press to select and copy. This is the unredacted local history."), size=12),
                 ft.TextField(value=export_text(self.ctl.msgs), multiline=True, min_lines=6, max_lines=10,
                              read_only=True)], tight=True, width=340),
-            actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
+            actions=[ft.TextButton(self._t("Close"), on_click=lambda _: self.page.pop_dialog())]))
 
     def _context_dialog(self) -> None:
         c = self.ctl.s.ai_context
@@ -785,21 +787,23 @@ class ChatView:
             self.ctl.ctx.store.save()
 
         self.page.show_dialog(ft.AlertDialog(
-                        title=ft.Text("Shared context"), scrollable=True,
+                        title=ft.Text(self._t("Shared context")), scrollable=True,
             content=ft.Container(width=340, content=ft.Column([
-                ft.Text("Choose what the AI can see alongside your messages. Secrets are always redacted.",
+                ft.Text(self._t("Choose what the AI can see alongside your messages. Secrets are always redacted."),
                         size=12),
                 sw("os", "OS / distro / kernel"), sw("shell", "Shell"), sw("cwd", "File-manager folder"),
                 sw("pkg", "Package manager"), sw("services", "Running services (runs one command)"),
-                ft.Dropdown(label="Last terminal lines", value=str(c.get("term", 0)), on_select=lines,
+                ft.Dropdown(label=self._t("Last terminal lines"), value=str(c.get("term", 0)), on_select=lines,
                             options=[ft.DropdownOption(key=str(n), text="Off" if n == 0 else f"{n} lines")
                                      for n in (0, 20, 50, 100)])], tight=True)),
-            actions=[ft.TextButton("Done", on_click=lambda _: self.page.pop_dialog())]))
+            actions=[ft.TextButton(self._t("Done"), on_click=lambda _: self.page.pop_dialog())]))
 
 
 # ====================================================================== profile manager
 def open_profiles(ctx: AppContext, on_change: Optional[Callable[[], None]] = None) -> None:
     page = ctx.page
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     col = ft.ListView(spacing=6, expand=True)
 
     def changed() -> None:
@@ -818,43 +822,45 @@ def open_profiles(ctx: AppContext, on_change: Optional[Callable[[], None]] = Non
                 changed()
 
             def delete(_, p=p):
-                confirm(page, "Delete profile?", f"“{p.name}” and its saved key will be removed.",
-                        lambda: (ctx.ai_profiles.delete(p.id), changed()), yes_label="Delete")
+                confirm(page, _t("Delete profile?"), f"“{p.name}” and its saved key will be removed.",
+                        lambda: (ctx.ai_profiles.delete(p.id), changed()), yes_label=_t("Delete"), lang=lang)
             rows.append(ft.Row([
                 ft.Icon(ft.Icons.CHECK_CIRCLE if active and active.id == p.id else ft.Icons.CIRCLE_OUTLINED, size=18),
                 ft.Column([ft.Text(p.name, weight=ft.FontWeight.W_600),
                            ft.Text(f"{KINDS[p.kind]} · {p.model}", size=11, opacity=0.7)], spacing=0, expand=True),
-                ft.IconButton(ft.Icons.CHECK, tooltip="Use", width=44, height=44, on_click=use),
-                ft.IconButton(ft.Icons.EDIT, tooltip="Edit", width=44, height=44,
+                ft.IconButton(ft.Icons.CHECK, tooltip=_t("Use"), width=44, height=44, on_click=use),
+                ft.IconButton(ft.Icons.EDIT, tooltip=_t("Edit"), width=44, height=44,
                               on_click=lambda _, p=p: open_profile_editor(ctx, p, changed)),
-                ft.IconButton(ft.Icons.DELETE, tooltip="Delete", width=44, height=44, on_click=delete)]))
-        col.controls = rows or [ft.Text("No profiles yet. Add one to start chatting.", opacity=0.7)]
+                ft.IconButton(ft.Icons.DELETE, tooltip=_t("Delete"), width=44, height=44, on_click=delete)]))
+        col.controls = rows or [ft.Text(_t("No profiles yet. Add one to start chatting."), opacity=0.7)]
 
     draw()
     page.show_dialog(ft.AlertDialog(
         scrollable=True,
-        title=ft.Text("AI profiles"), content=ft.Container(width=340, height=320, content=col),
-        actions=[ft.TextButton("Add profile", icon=ft.Icons.ADD,
+        title=ft.Text(_t("AI profiles")), content=ft.Container(width=340, height=320, content=col),
+        actions=[ft.TextButton(_t("Add profile"), icon=ft.Icons.ADD,
                                on_click=lambda _: open_profile_editor(ctx, None, changed)),
-                 ft.TextButton("Close", on_click=lambda _: page.pop_dialog())]))
+                 ft.TextButton(_t("Close"), on_click=lambda _: page.pop_dialog())]))
 
 
 def open_profile_editor(ctx: AppContext, existing: Optional[AIProfile], done: Callable[[], None]) -> None:
     page = ctx.page
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     p = existing or AIProfile(name="", kind="openai")
-    name = ft.TextField(label="Name", value=p.name)
-    kind = ft.Dropdown(label="Provider type", value=p.kind,
+    name = ft.TextField(label=_t("Name"), value=p.name)
+    kind = ft.Dropdown(label=_t("Provider type"), value=p.kind,
                        options=[ft.DropdownOption(key=k, text=v) for k, v in KINDS.items()])
-    base = ft.TextField(label="Base URL", value=p.base_url, hint_text=DEFAULT_URLS[p.kind])
-    key = ft.TextField(label="API key", password=True, can_reveal_password=True,
-                       hint_text="Leave blank to keep the saved key" if p.api_key_enc else "Paste your key")
-    no_key = ft.Switch(label="No API key (local model)", value=bool(existing and not existing.api_key_enc))
-    model = ft.TextField(label="Model", value=p.model)
-    models_dd = ft.Dropdown(label="Available models", visible=False,
+    base = ft.TextField(label=_t("Base URL"), value=p.base_url, hint_text=DEFAULT_URLS[p.kind])
+    key = ft.TextField(label=_t("API key"), password=True, can_reveal_password=True,
+                       hint_text=_t("Leave blank to keep the saved key") if p.api_key_enc else "Paste your key")
+    no_key = ft.Switch(label=_t("No API key (local model)"), value=bool(existing and not existing.api_key_enc))
+    model = ft.TextField(label=_t("Model"), value=p.model)
+    models_dd = ft.Dropdown(label=_t("Available models"), visible=False,
                             on_select=lambda e: (setattr(model, "value", e.control.value), page.update()))
     temp = ft.Slider(min=0, max=2, divisions=20, value=p.temperature, label="{value}")
-    max_tok = ft.TextField(label="Max tokens", value=str(p.max_tokens), keyboard_type=ft.KeyboardType.NUMBER)
-    headers = ft.TextField(label="Custom headers (one “Name: value” per line)", multiline=True, min_lines=2,
+    max_tok = ft.TextField(label=_t("Max tokens"), value=str(p.max_tokens), keyboard_type=ft.KeyboardType.NUMBER)
+    headers = ft.TextField(label=_t("Custom headers (one “Name: value” per line)"), multiline=True, min_lines=2,
                            max_lines=4, value="\n".join(f"{k}: {v}" for k, v in p.headers.items()))
     result = ft.Text("", size=12)
 
@@ -934,13 +940,13 @@ def open_profile_editor(ctx: AppContext, existing: Optional[AIProfile], done: Ca
         done()
 
     page.show_dialog(ft.AlertDialog(
-                title=ft.Text("Edit profile" if existing else "New profile"), scrollable=True,
+                title=ft.Text(_t("Edit profile") if existing else _t("New profile")), scrollable=True,
         content=ft.Container(width=340, content=ft.Column([
             name, kind, base, key, no_key, model,
-            ft.Row([ft.TextButton("Fetch models", icon=ft.Icons.CLOUD_DOWNLOAD, on_click=fetch)]), models_dd,
-            ft.Text("Temperature", size=12), temp, max_tok, headers,
+            ft.Row([ft.TextButton(_t("Fetch models"), icon=ft.Icons.CLOUD_DOWNLOAD, on_click=fetch)]), models_dd,
+            ft.Text(_t("Temperature"), size=12), temp, max_tok, headers,
             ft.Text("Local servers (Ollama, LM Studio, vLLM, llama.cpp) work with plain http:// LAN URLs "
                     "and no key.", size=11, opacity=0.7), result], tight=True, spacing=theme.SPACE)),
-        actions=[ft.TextButton("Test", on_click=test),
-                 ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
-                 ft.FilledButton("Save", on_click=save)]))
+        actions=[ft.TextButton(_t("Test"), on_click=test),
+                 ft.TextButton(_t("Cancel"), on_click=lambda _: page.pop_dialog()),
+                 ft.FilledButton(_t("Save"), on_click=save)]))

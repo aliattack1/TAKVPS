@@ -85,6 +85,9 @@ class Shell:
         self.index = 0
         self.panel: Optional[str] = None            # None | "files" | "chat" (wide screens)
         self.dests = self._destinations()
+        # Track the language used to build self.dests so we can rebuild them
+        # when the user changes language in Settings (live, without restart).
+        self._last_lang = ctx.store.data.language
         self._wide: bool | None = None
         self.page.on_resize = self._on_resize
 
@@ -340,6 +343,23 @@ class Shell:
     def render(self) -> None:
         p = self.page
         self._wide = self._is_wide()
+        # Live language switching: if the user changed language in Settings,
+        # rebuild the navigation destinations so their labels pick up the
+        # new translations immediately (without requiring an app restart).
+        cur_lang = self.ctx.store.data.language
+        if cur_lang != self._last_lang:
+            self._last_lang = cur_lang
+            # Rebuild dests with new translations (preserves the current
+            # page selection — we match by key, not by index).
+            cur_key = self.dests[self.index].key if self.dests else None
+            self.dests = self._destinations()
+            if cur_key:
+                for i, d in enumerate(self.dests):
+                    if d.key == cur_key:
+                        self.index = i
+                        break
+            # Update the connection banner's language too.
+            self.banner.set_language(cur_lang)
         # wrap the page build in a try/except so a construction
         # error shows a friendly message instead of crashing the app.
         try:

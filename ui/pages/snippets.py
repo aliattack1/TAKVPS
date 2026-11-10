@@ -196,6 +196,8 @@ def snippets_page(ctx: AppContext) -> ft.Control:
 # ====================================================================== running
 async def _ask_variables(ctx: AppContext, sn: S.Snippet, names: list[str]) -> Optional[dict]:
     import asyncio
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     fut: asyncio.Future = asyncio.get_running_loop().create_future()
     fields = {n: ft.TextField(label=n, autofocus=(i == 0)) for i, n in enumerate(names)}
 
@@ -207,15 +209,17 @@ async def _ask_variables(ctx: AppContext, sn: S.Snippet, names: list[str]) -> Op
     ctx.page.show_dialog(ft.AlertDialog(
         modal=True, title=ft.Text(sn.name), scrollable=True,
         content=ft.Container(width=340, content=ft.Column(
-            [ft.Text("Values are inserted shell-quoted.", size=12, opacity=0.7), *fields.values()], tight=True)),
-        actions=[ft.TextButton("Cancel", on_click=lambda _: done(None)),
-                 ft.FilledButton("Run", on_click=lambda _: done({n: f.value or "" for n, f in fields.items()}))]))
+            [ft.Text(_t("Values are inserted shell-quoted."), size=12, opacity=0.7), *fields.values()], tight=True)),
+        actions=[ft.TextButton(_t("Cancel"), on_click=lambda _: done(None)),
+                 ft.FilledButton(_t("Run"), on_click=lambda _: done({n: f.value or "" for n, f in fields.items()}))]))
     return await fut
 
 
 async def run_snippet(ctx: AppContext, sn: S.Snippet, background: Optional[bool] = None) -> None:
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     if ctx.ssh.status.value != "connected":
-        toast(ctx.page, "Not connected.", error=True)
+        toast(ctx.page, _t("Not connected."), error=True)
         return
     names = S.find_variables(sn.command)
     values: dict = {}
@@ -234,8 +238,10 @@ async def run_snippet(ctx: AppContext, sn: S.Snippet, background: Optional[bool]
 
 
 async def run_deploy(ctx: AppContext, d: D.Deploy) -> None:
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     if ctx.ssh.status.value != "connected":
-        toast(ctx.page, "Not connected.", error=True)
+        toast(ctx.page, _t("Not connected."), error=True)
         return
     try:
         steps = D.plan_deploy(d)
@@ -270,17 +276,19 @@ async def run_deploy(ctx: AppContext, d: D.Deploy) -> None:
 # ====================================================================== editors
 def open_snippet_editor(ctx: AppContext, existing: Optional[S.Snippet], prefill: str = "") -> None:
     page = ctx.page
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     p = existing or S.Snippet(name=(prefill.split() or [""])[0][:30], command=prefill)
-    name = ft.TextField(label="Name", value=p.name)
-    cmd = ft.TextField(label="Command", value=p.command, multiline=True, min_lines=3, max_lines=8,
+    name = ft.TextField(label=_t("Name"), value=p.name)
+    cmd = ft.TextField(label=_t("Command"), value=p.command, multiline=True, min_lines=3, max_lines=8,
                        text_style=ft.TextStyle(font_family="monospace"),
-                       hint_text="Use {{name}} for values to ask each time")
-    cwd = ft.TextField(label="Working directory (optional)", value=p.cwd, hint_text="/srv/app or ~/project")
-    group = ft.TextField(label="Group (optional)", value=p.group, hint_text="e.g. Docker")
-    sudo = ft.Switch(label="Run with sudo", value=p.sudo)
-    bg = ft.Switch(label="Run in background (nohup, log in /tmp/takvps-logs)", value=p.background)
-    scope = ft.Switch(label="Only for this server", value=bool(p.scope), disabled=ctx.active is None)
-    icon = ft.Dropdown(label="Icon", value=p.icon if p.icon in ICONS else "TERMINAL",
+                       hint_text=_t("Use {{name}} for values to ask each time"))
+    cwd = ft.TextField(label=_t("Working directory (optional)"), value=p.cwd, hint_text="/srv/app or ~/project")
+    group = ft.TextField(label=_t("Group (optional)"), value=p.group, hint_text=_t("e.g. Docker"))
+    sudo = ft.Switch(label=_t("Run with sudo"), value=p.sudo)
+    bg = ft.Switch(label=_t("Run in background (nohup, log in /tmp/takvps-logs)"), value=p.background)
+    scope = ft.Switch(label=_t("Only for this server"), value=bool(p.scope), disabled=ctx.active is None)
+    icon = ft.Dropdown(label=_t("Icon"), value=p.icon if p.icon in ICONS else "TERMINAL",
                        options=[ft.DropdownOption(key=i, text=i.replace("_", " ").title()) for i in ICONS])
     color = [p.color]
     sw = ft.Row(wrap=True)
@@ -317,28 +325,30 @@ def open_snippet_editor(ctx: AppContext, existing: Optional[S.Snippet], prefill:
         ctx.refresh_ui()
 
     page.show_dialog(ft.AlertDialog(
-                title=ft.Text("Edit command" if existing else "New command"), scrollable=True,
+                title=ft.Text(_t("Edit command") if existing else _t("New command")), scrollable=True,
         content=ft.Container(width=340, content=ft.Column(
             [name, cmd, risk, cwd, group, sudo, bg, scope, icon, sw], tight=True, spacing=theme.SPACE)),
-        actions=[ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
-                 ft.FilledButton("Save", on_click=save)]))
+        actions=[ft.TextButton(_t("Cancel"), on_click=lambda _: page.pop_dialog()),
+                 ft.FilledButton(_t("Save"), on_click=save)]))
 
 
 def open_deploy_editor(ctx: AppContext, existing: Optional[D.Deploy]) -> None:
     page = ctx.page
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     p = existing or D.Deploy(name="", project_dir="")
-    name = ft.TextField(label="Name", value=p.name)
-    pdir = ft.TextField(label="Project folder", value=p.project_dir, hint_text="/srv/mysite")
-    branch = ft.TextField(label="Branch (optional)", value=p.branch, hint_text="main")
-    steps = ft.TextField(label="Build / install steps (one per line)", value="\n".join(p.steps), multiline=True,
+    name = ft.TextField(label=_t("Name"), value=p.name)
+    pdir = ft.TextField(label=_t("Project folder"), value=p.project_dir, hint_text="/srv/mysite")
+    branch = ft.TextField(label=_t("Branch (optional)"), value=p.branch, hint_text="main")
+    steps = ft.TextField(label=_t("Build / install steps (one per line)"), value="\n".join(p.steps), multiline=True,
                          min_lines=3, max_lines=6, text_style=ft.TextStyle(font_family="monospace"),
                          hint_text="npm ci\nnpm run build")
-    kind = ft.Dropdown(label="Then restart", value=p.restart_kind,
+    kind = ft.Dropdown(label=_t("Then restart"), value=p.restart_kind,
                        options=[ft.DropdownOption(key=k, text=v) for k, v in D.RESTART_KINDS.items()])
-    target = ft.TextField(label="Service / container / command", value=p.restart_target)
-    health = ft.TextField(label="Health check (URL or command, optional)", value=p.health,
+    target = ft.TextField(label=_t("Service / container / command"), value=p.restart_target)
+    health = ft.TextField(label=_t("Health check (URL or command, optional)"), value=p.health,
                           hint_text="https://example.com/health")
-    scope = ft.Switch(label="Only for this server", value=bool(p.scope), disabled=ctx.active is None)
+    scope = ft.Switch(label=_t("Only for this server"), value=bool(p.scope), disabled=ctx.active is None)
 
     def save(_):
         d = replace(p, name=name.value.strip(), project_dir=pdir.value.strip(), branch=branch.value.strip(),
@@ -353,18 +363,20 @@ def open_deploy_editor(ctx: AppContext, existing: Optional[D.Deploy]) -> None:
         ctx.refresh_ui()
 
     page.show_dialog(ft.AlertDialog(
-                title=ft.Text("Edit deploy recipe" if existing else "New deploy recipe"), scrollable=True,
+                title=ft.Text(_t("Edit deploy recipe") if existing else _t("New deploy recipe")), scrollable=True,
         content=ft.Container(width=340, content=ft.Column([
             name, pdir, branch, steps, kind, target, health, scope,
             ft.Text("Deploy: git pull → build steps → restart → health check. If a step fails you can roll back "
                     "to the previous commit.", size=11, opacity=0.7)], tight=True, spacing=theme.SPACE)),
-        actions=[ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
-                 ft.FilledButton("Save", on_click=save)]))
+        actions=[ft.TextButton(_t("Cancel"), on_click=lambda _: page.pop_dialog()),
+                 ft.FilledButton(_t("Save"), on_click=save)]))
 
 
 # ====================================================================== packs
 def open_packs(ctx: AppContext) -> None:
     page = ctx.page
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
 
     def builtin(name: str):
         try:
@@ -372,7 +384,7 @@ def open_packs(ctx: AppContext) -> None:
         except K.PackError as e:
             toast(page, str(e), error=True)
 
-    text = ft.TextField(label="Paste pack text to import", multiline=True, min_lines=3, max_lines=6)
+    text = ft.TextField(label=_t("Paste pack text to import"), multiline=True, min_lines=3, max_lines=6)
 
     def do_paste(_):
         try:
@@ -383,14 +395,14 @@ def open_packs(ctx: AppContext) -> None:
         open_import_preview(ctx, pack)
 
     page.show_dialog(ft.AlertDialog(
-                title=ft.Text("Snippet packs"), scrollable=True,
+                title=ft.Text(_t("Snippet packs")), scrollable=True,
         content=ft.Container(width=340, content=ft.Column([
-            ft.Text("Built-in packs", weight=ft.FontWeight.W_600),
+            ft.Text(_t("Built-in packs"), weight=ft.FontWeight.W_600),
             *[ft.TextButton(n, icon=ft.Icons.INVENTORY_2, on_click=lambda _, n=n: builtin(n)) for n in K.BUILTIN_PACKS],
-            ft.Divider(), text, ft.FilledTonalButton("Preview import", on_click=do_paste),
-            ft.Divider(), ft.FilledTonalButton("Export my commands…", icon=ft.Icons.IOS_SHARE,
+            ft.Divider(), text, ft.FilledTonalButton(_t("Preview import"), on_click=do_paste),
+            ft.Divider(), ft.FilledTonalButton(_t("Export my commands…"), icon=ft.Icons.IOS_SHARE,
                                                on_click=lambda _: open_export(ctx))], tight=True)),
-        actions=[ft.TextButton("Close", on_click=lambda _: page.pop_dialog())]))
+        actions=[ft.TextButton(_t("Close"), on_click=lambda _: page.pop_dialog())]))
 
 
 def open_import_preview(ctx: AppContext, pack: K.Pack) -> None:
@@ -418,17 +430,21 @@ def open_import_preview(ctx: AppContext, pack: K.Pack) -> None:
         ctx.refresh_ui()
         toast(page, f"Imported {len(sns) + len(dps)} item(s).")
 
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     page.show_dialog(ft.AlertDialog(
-                title=ft.Text(f"Import “{pack.name}”"), scrollable=True,
+                title=ft.Text(f"""{_t("Import")} “{pack.name}”"""), scrollable=True,
         content=ft.Container(width=340, content=ft.Column([
-            ft.Text("Review each command. Dangerous ones are unchecked by default.", size=12), *rows],
+            ft.Text(_t("Review each command. Dangerous ones are unchecked by default."), size=12), *rows],
             tight=True, spacing=theme.SPACE)),
-        actions=[ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
-                 ft.FilledButton("Import selected", on_click=do_import)]))
+        actions=[ft.TextButton(_t("Cancel"), on_click=lambda _: page.pop_dialog()),
+                 ft.FilledButton(_t("Import selected"), on_click=do_import)]))
 
 
 def open_export(ctx: AppContext) -> None:
     page = ctx.page
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     cid = ctx.active.id if ctx.active else ""
     sns, dps = ctx.snippets.list_snippets(cid), ctx.snippets.list_deploys(cid)
     checks = [(ft.Checkbox(label=s.name, value=True), s) for s in sns] + \
@@ -443,18 +459,20 @@ def open_export(ctx: AppContext) -> None:
         page.update()
 
     page.show_dialog(ft.AlertDialog(
-                title=ft.Text("Export pack"), scrollable=True,
+                title=ft.Text(_t("Export pack")), scrollable=True,
         content=ft.Container(width=340, content=ft.Column([
-            *([c for c, _ in checks] or [ft.Text("Nothing to export yet.")]),
-            ft.FilledTonalButton("Create pack text", on_click=make), result,
-            ft.Text("Long-press the text to select and copy. Commands are plain text, so don't include secrets.",
+            *([c for c, _ in checks] or [ft.Text(_t("Nothing to export yet."))]),
+            ft.FilledTonalButton(_t("Create pack text"), on_click=make), result,
+            ft.Text(_t("Long-press the text to select and copy. Commands are plain text, so don't include secrets."),
                     size=11, opacity=0.7)], tight=True)),
-        actions=[ft.TextButton("Close", on_click=lambda _: page.pop_dialog())]))
+        actions=[ft.TextButton(_t("Close"), on_click=lambda _: page.pop_dialog())]))
 
 
 # ====================================================================== history
 def open_history(ctx: AppContext, item_id: str) -> None:
     page = ctx.page
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     runs = ctx.snippet_runs.recent(40, item_id)
 
     def show(r: dict) -> None:
@@ -464,7 +482,7 @@ def open_history(ctx: AppContext, item_id: str) -> None:
                 ft.Text(f"exit {r['exit']} · {r['sec']} s · {time_ago(r['ts'])}", size=12),
                 ft.Text(r.get("out") or "(no output)", font_family="monospace", size=11, selectable=True)],
                 tight=True)),
-            actions=[ft.TextButton("Close", on_click=lambda _: page.pop_dialog())]))
+            actions=[ft.TextButton(_t("Close"), on_click=lambda _: page.pop_dialog())]))
 
     rows = [ft.ListTile(
         leading=ft.Icon(ft.Icons.CHECK_CIRCLE if r["exit"] == 0 else ft.Icons.ERROR,
@@ -473,7 +491,7 @@ def open_history(ctx: AppContext, item_id: str) -> None:
         on_click=lambda _, r=r: show(r)) for r in runs]
     page.show_dialog(ft.AlertDialog(
         scrollable=True,
-        title=ft.Text("Run history"),
+        title=ft.Text(_t("Run history")),
         content=ft.Container(width=340, height=360, content=ft.ListView(
-            rows or [ft.Text("Nothing has been run yet.", opacity=0.7)])),
-        actions=[ft.TextButton("Close", on_click=lambda _: page.pop_dialog())]))
+            rows or [ft.Text(_t("Nothing has been run yet."), opacity=0.7)])),
+        actions=[ft.TextButton(_t("Close"), on_click=lambda _: page.pop_dialog())]))

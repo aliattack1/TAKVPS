@@ -18,6 +18,7 @@ from core.ssh_client import SSHClient
 from services.fleet import LIGHT_CMD, FleetStatus, health, parse_light
 from services.fleet_runner import (AGG_HARD_FAIL, FleetRun, FleetRunner, FleetRunResult,
                                      RunOutcome, RunState, order_for_display, select_profiles)
+from services.i18n import translate
 from services.risk import classify
 from services import snippets as S
 from storage.connections import ConnectionConfigError, ConnectionProfile
@@ -41,12 +42,14 @@ _STATE_COLOR = {
 
 async def probe(ctx: AppContext, p: ConnectionProfile) -> FleetStatus:
     """Connect on a throwaway client (never prompts: unknown host keys and missing passwords are skipped)."""
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     try:
         creds = ctx.conns.credentials(p, ctx.vault)
     except (ConnectionConfigError, VaultError) as e:
         return FleetStatus(error=str(e))
     if p.auth == "password" and not creds.password:
-        return FleetStatus(error="No saved password. Connect once from Servers.")
+        return FleetStatus(error=_t("No saved password. Connect once from Servers."))
 
     async def deny(host: str, fp: str, changed) -> bool:
         return False
@@ -56,11 +59,11 @@ async def probe(ctx: AppContext, p: ConnectionProfile) -> FleetStatus:
         await asyncio.wait_for(tmp.connect(creds), 25)
         return parse_light((await tmp.run(LIGHT_CMD, timeout=15)).stdout)
     except HostKeyRejected:
-        return FleetStatus(error="Host key not trusted yet. Connect once from Servers.")
+        return FleetStatus(error=_t("Host key not trusted yet. Connect once from Servers."))
     except TakError as e:
         return FleetStatus(error=e.message)
     except asyncio.TimeoutError:
-        return FleetStatus(error="Timed out.")
+        return FleetStatus(error=_t("Timed out."))
     finally:
         try:
             await tmp.disconnect()
@@ -76,15 +79,17 @@ async def _connect_and_run_for_fleet(ctx: AppContext, run: FleetRun, cmd: str,
     runs `cmd`, and returns a `RunOutcome`. Never prompts the user — unknown
     host keys and missing passwords are surfaced as ERROR.
     """
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     p = ctx.conns.get(run.profile_id)
     if p is None:
-        return RunOutcome(error="Profile no longer exists.")
+        return RunOutcome(error=_t("Profile no longer exists."))
     try:
         creds = ctx.conns.credentials(p, ctx.vault)
     except (ConnectionConfigError, VaultError) as e:
         return RunOutcome(error=str(e))
     if p.auth == "password" and not creds.password:
-        return RunOutcome(error="No saved password. Connect once from Servers.")
+        return RunOutcome(error=_t("No saved password. Connect once from Servers."))
 
     async def deny(host: str, fp: str, changed) -> bool:
         return False
@@ -93,9 +98,9 @@ async def _connect_and_run_for_fleet(ctx: AppContext, run: FleetRun, cmd: str,
     try:
         await asyncio.wait_for(tmp.connect(creds), min(25, timeout))
     except HostKeyRejected:
-        return RunOutcome(error="Host key not trusted yet. Connect once from Servers.")
+        return RunOutcome(error=_t("Host key not trusted yet. Connect once from Servers."))
     except (TakError, asyncio.TimeoutError) as e:
-        return RunOutcome(error=getattr(e, "message", None) or "Couldn't connect.")
+        return RunOutcome(error=getattr(e, "message", None) or _t("Couldn't connect."))
     try:
         r = await tmp.run(cmd, timeout=timeout, sudo=sudo,
                             sudo_password=creds.password if sudo else None)
@@ -111,10 +116,12 @@ async def _connect_and_run_for_fleet(ctx: AppContext, run: FleetRun, cmd: str,
 
 def _preflight_for_fleet(ctx: AppContext) -> callable:
     """Build a preflight callable that skips servers we know will fail at connect time."""
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     def preflight(run: FleetRun) -> tuple[bool, str]:
         p = ctx.conns.get(run.profile_id)
         if p is None:
-            return (False, "Profile no longer exists.")
+            return (False, _t("Profile no longer exists."))
         # We can't easily peek into the vault here without an await; the connect_and_run
         # hook already reports "no saved password" as an ERROR. So we accept every
         # profile and let the runner's connect path filter them out — but with a clear
@@ -126,24 +133,28 @@ def _preflight_for_fleet(ctx: AppContext) -> callable:
 class FleetView:
     def __init__(self, ctx: AppContext) -> None:
         self.ctx, self.page = ctx, ctx.page
+        # Persian translation helper bound to the user's language.
+        self._lang = ctx.store.data.language
+        self._t = lambda s: translate(s, self._lang)  # noqa: E731
+        _t = self._t
         self.busy = False
         # live fleet-run dialog state.
         self.runner: FleetRunner | None = None
         self.fleet_runs: list[FleetRun] = []
         self.fleet_dialog: ft.AlertDialog | None = None
         self.fleet_list = ft.ListView(expand=True, spacing=4)
-        self.fleet_status = ft.Text("Idle.", size=12, opacity=0.7)
+        self.fleet_status = ft.Text(_t("Idle."), size=12, opacity=0.7)
         self.progress = ft.ProgressBar(visible=False)
         self.list = ft.ListView(expand=True, spacing=8)
         self.control = ft.Container(padding=theme.SPACE, expand=True, content=ft.Column([
-            ft.Row([ft.Text("All servers", size=22, weight=ft.FontWeight.W_600, expand=True),
-                    ft.IconButton(ft.Icons.PLAY_CIRCLE, tooltip="Run on fleet…",
+            ft.Row([ft.Text(_t("All servers"), size=22, weight=ft.FontWeight.W_600, expand=True),
+                    ft.IconButton(ft.Icons.PLAY_CIRCLE, tooltip=_t("Run on fleet…"),
                                   width=44, height=44,
                                   on_click=lambda _: self.open_run_dialog()),
-                    ft.IconButton(ft.Icons.REFRESH, tooltip="Check all", width=44, height=44,
+                    ft.IconButton(ft.Icons.REFRESH, tooltip=_t("Check all"), width=44, height=44,
                                   on_click=lambda _: self.page.run_task(self.refresh))], scroll=ft.ScrollMode.AUTO),
-            ft.Text("A quick read-only check of every saved server. CPU is load average ÷ cores. "
-                    "Use ▶ to run a command or snippet across all of them at once.",
+            ft.Text(_t("A quick read-only check of every saved server. CPU is load average ÷ cores. "
+                       "Use ▶ to run a command or snippet across all of them at once."),
                     size=11, opacity=0.6),
             self.progress, self.list], expand=True, spacing=8))
         self.render()
@@ -174,6 +185,7 @@ class FleetView:
         self.render()
 
     def render(self) -> None:
+        _t = self._t
         thr = self.ctx._thresholds()
         tiles: list[ft.Control] = []
         for p in self.ctx.conns.list():
@@ -181,23 +193,29 @@ class FleetView:
             h = health(s, thr) if s else "down"
             body: list[ft.Control] = [ft.Row([ft.Icon(ft.Icons.CIRCLE, size=12, color=_COLOR[h]),
                                               ft.Text(p.name, weight=ft.FontWeight.W_600, expand=True, no_wrap=True),
-                                              ft.Text(_LABEL[h] if s else "not checked", size=11, opacity=0.8)]),
+                                              ft.Text(_t(_LABEL[h]) if s else _t("not checked"), size=11, opacity=0.8)]),
                                       ft.Text(p.target, size=11, opacity=0.6)]
             if s and s.ok:
                 def bar(label, pct, lv):
                     return ft.Row([ft.Text(label, size=11, width=42), ft.ProgressBar(value=min(pct, 100) / 100, expand=True,
                                                                                     color=_COLOR[lv]), ft.Text(f"{pct:.0f}%", size=11, width=40)])
                 from services.monitor import level
-                body += [bar("CPU", s.cpu_pct, level(min(s.cpu_pct, 100), thr.cpu)), bar("RAM", s.mem_pct, level(s.mem_pct, thr.ram)),
-                         bar("Disk", s.disk_pct, level(s.disk_pct, thr.disk)),
-                         ft.Text(f"up {human_duration(s.uptime_s)}" + (f" · {s.failed} failed service(s)" if s.failed else "")
-                                 + (" · reboot required" if s.reboot else "") + f" · {time_ago(s.taken_at)}", size=10, opacity=0.7)]
+                up_parts = [_t("up {dur}").format(dur=human_duration(s.uptime_s))]
+                if s.failed:
+                    up_parts.append(_t("{n} failed service(s)").format(n=s.failed))
+                if s.reboot:
+                    up_parts.append(_t("reboot required"))
+                up_parts.append(time_ago(s.taken_at))
+                body += [bar(_t("CPU"), s.cpu_pct, level(min(s.cpu_pct, 100), thr.cpu)),
+                         bar(_t("RAM"), s.mem_pct, level(s.mem_pct, thr.ram)),
+                         bar(_t("Disk"), s.disk_pct, level(s.disk_pct, thr.disk)),
+                         ft.Text(" · ".join(up_parts), size=10, opacity=0.7)]
             elif s:
-                body.append(ft.Text(s.error or "Unreachable.", size=11, color=ft.Colors.ERROR))
+                body.append(ft.Text(s.error or _t("Unreachable."), size=11, color=ft.Colors.ERROR))
             tiles.append(ft.Container(border_radius=theme.RADIUS, padding=theme.SPACE, ink=True,
                                       bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH, on_click=lambda _, p=p: self.page.run_task(self.open, p),
                                       content=ft.Column(body, spacing=4)))
-        self.list.controls = tiles or [ft.Container(padding=24, content=ft.Text("Add servers first.", opacity=0.7))]
+        self.list.controls = tiles or [ft.Container(padding=24, content=ft.Text(_t("Add servers first."), opacity=0.7))]
         try:
             self.page.update()
         except Exception:  # noqa: BLE001
@@ -210,35 +228,36 @@ class FleetView:
     # ---------------------------------------------------------------- fleet run
     def open_run_dialog(self) -> None:
         """Step 1: pick what to run — a one-off command, or a saved snippet."""
+        _t = self._t
         profiles = self.ctx.conns.list()
         if not profiles:
-            toast(self.page, "Add servers first.")
+            toast(self.page, _t("Add servers first."))
             return
         snippets = self.ctx.snippets.list_snippets("")     # global scope only for fleet runs
         col = ft.Column(spacing=8, scroll=ft.ScrollMode.AUTO, expand=True)
-        col.controls.append(ft.Text("Run a command across every saved server in parallel.",
+        col.controls.append(ft.Text(_t("Run a command across every saved server in parallel."),
                                      size=12, opacity=0.7))
         # Free-form command path
-        cmd_field = ft.TextField(hint_text="uptime", label="Command (one line)",
+        cmd_field = ft.TextField(hint_text=_t("uptime"), label=_t("Command (one line)"),
                                   dense=True, expand=True, border_radius=8)
-        sudo_sw = ft.Switch(label="sudo", value=False)
-        col.controls.append(ft.Text("One-off command", size=13, weight=ft.FontWeight.W_600))
+        sudo_sw = ft.Switch(label=_t("sudo"), value=False)
+        col.controls.append(ft.Text(_t("One-off command"), size=13, weight=ft.FontWeight.W_600))
         col.controls.append(ft.Row([cmd_field, ft.Container(sudo_sw, padding=ft.Padding.only(top=8))], spacing=8))
 
         async def run_command(_=None) -> None:
             cmd = (cmd_field.value or "").strip()
             if not cmd:
-                toast(self.page, "Enter a command first.", error=True)
+                toast(self.page, _t("Enter a command first."), error=True)
                 return
             self.page.pop_dialog()
             await self._start_fleet_run(cmd, bool(sudo_sw.value), [])
 
-        col.controls.append(ft.FilledTonalButton("Run on all servers", icon=ft.Icons.PLAY_ARROW,
+        col.controls.append(ft.FilledTonalButton(_t("Run on all servers"), icon=ft.Icons.PLAY_ARROW,
                                                   on_click=lambda _: self.page.run_task(run_command)))
         # Snippet path
         if snippets:
             col.controls.append(ft.Divider(height=1))
-            col.controls.append(ft.Text("Or pick a saved snippet (global scope only)",
+            col.controls.append(ft.Text(_t("Or pick a saved snippet (global scope only)"),
                                          size=13, weight=ft.FontWeight.W_600))
             for sn in snippets[:20]:
                 col.controls.append(ft.Row([
@@ -247,21 +266,22 @@ class FleetView:
                                 ft.Text(sn.command.splitlines()[0][:60] if sn.command else "",
                                          size=11, opacity=0.6, no_wrap=True)],
                                spacing=0, expand=True),
-                    ft.IconButton(ft.Icons.PLAY_ARROW, tooltip="Run on fleet", width=44, height=44,
+                    ft.IconButton(ft.Icons.PLAY_ARROW, tooltip=_t("Run on fleet"), width=44, height=44,
                                   on_click=lambda _, s=sn: self.page.run_task(self._run_snippet_on_fleet, s)),
                 ], spacing=4))
         col.controls.append(ft.Divider(height=1))
-        col.controls.append(ft.Text("Every server runs the same command. Risky commands still need "
-                                     "approval; you'll get one prompt covering all of them.", size=11, opacity=0.7))
+        col.controls.append(ft.Text(_t("Every server runs the same command. Risky commands still need "
+                                      "approval; you'll get one prompt covering all of them."), size=11, opacity=0.7))
         dlg = ft.AlertDialog(
             scrollable=True,
-            title=ft.Text("Run on fleet"), modal=True,
+            title=ft.Text(_t("Run on fleet")), modal=True,
             content=ft.Container(width=440, height=min(420, (page.height or 600) - 200), content=col),
-            actions=[ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog())])
+            actions=[ft.TextButton(_t("Cancel"), on_click=lambda _: self.page.pop_dialog())])
         self.page.show_dialog(dlg)
 
     async def _run_snippet_on_fleet(self, sn) -> None:
         """Substitute variables once (same answer for every server), then start the run."""
+        _t = self._t
         names = S.find_variables(sn.command)
         values: dict = {}
         if names:
@@ -272,7 +292,7 @@ class FleetView:
         try:
             rendered = S.render(sn.command, values)
         except KeyError as e:
-            toast(self.page, f"Missing value for {e.args[0]}.", error=True)
+            toast(self.page, _t("Missing value for {name}.").format(name=e.args[0]), error=True)
             return
         # Close the picker dialog before starting.
         try:
@@ -283,6 +303,7 @@ class FleetView:
 
     async def _start_fleet_run(self, command: str, sudo: bool, profiles_override: list) -> None:
         """Single approval gate for the whole fleet, then spin up the runner + live dialog."""
+        _t = self._t
         # The risk classifier decides the approval flavour: dangerous → typed,
         # destructive/writes → confirm, safe → no prompt.
         risk = classify(command)
@@ -290,7 +311,7 @@ class FleetView:
             return
         profiles = profiles_override or self.ctx.conns.list()
         if not profiles:
-            toast(self.page, "No servers to run on.")
+            toast(self.page, _t("No servers to run on."))
             return
         # Pre-build the per-server FleetRun objects so the dialog renders immediately.
         self.fleet_runs = [
@@ -321,6 +342,7 @@ class FleetView:
         self.page.run_task(self._drive_fleet_run, command, sudo, profiles)
 
     async def _drive_fleet_run(self, command: str, sudo: bool, profiles: list) -> None:
+        _t = self._t
         # Run the fleet on a background task so we can refresh the dialog while
         # it's in flight. The runner mutates `self.fleet_runs` in place as each
         # task progresses, so polling that list gives us a live view.
@@ -344,7 +366,7 @@ class FleetView:
         try:
             result = await run_task
         except Exception as e:  # noqa: BLE001
-            toast(self.page, f"Fleet run crashed: {e}", error=True)
+            toast(self.page, _t("Fleet run crashed: {e}").format(e=e), error=True)
             return
         # Persist to fleet_history.jsonl.
         try:
@@ -362,8 +384,9 @@ class FleetView:
 
     def _live_summary(self) -> str:
         """Cheap in-flight summary: '2 done · 1 running · 2 pending'."""
+        _t = self._t
         if not self.fleet_runs:
-            return "Starting…"
+            return _t("Starting…")
         done = sum(1 for r in self.fleet_runs if r.state == RunState.DONE)
         failed = sum(1 for r in self.fleet_runs if r.state in AGG_HARD_FAIL)
         active = sum(1 for r in self.fleet_runs
@@ -371,30 +394,32 @@ class FleetView:
         pending = sum(1 for r in self.fleet_runs if r.state == RunState.PENDING)
         skipped = sum(1 for r in self.fleet_runs if r.state == RunState.SKIPPED)
         parts = []
-        if done: parts.append(f"{done} done")
-        if failed: parts.append(f"{failed} failed")
-        if active: parts.append(f"{active} running")
-        if pending: parts.append(f"{pending} queued")
-        if skipped: parts.append(f"{skipped} skipped")
-        return " · ".join(parts) or "Starting…"
+        if done: parts.append(_t("{n} done").format(n=done))
+        if failed: parts.append(_t("{n} failed").format(n=failed))
+        if active: parts.append(_t("{n} running").format(n=active))
+        if pending: parts.append(_t("{n} queued").format(n=pending))
+        if skipped: parts.append(_t("{n} skipped").format(n=skipped))
+        return " · ".join(parts) or _t("Starting…")
 
     async def _gate_fleet(self, command: str, risk) -> bool:
         """One approval prompt covers the whole fleet. Dangerous → typed; others → confirm."""
+        _t = self._t
         shown = command if len(command) < 400 else command[:400] + "…"
-        body = (f"Run on every saved server in parallel?\n\n```\n{shown}\n```\n\n"
-                f"Risk: {risk.level}. {risk.explanation}")
+        body = (_t("Run on every saved server in parallel?") + f"\n\n```\n{shown}\n```\n\n"
+                + _t("Risk: {level}. {explanation}").format(level=risk.level, explanation=risk.explanation))
         if risk.level == "dangerous":
-            return await self.ctx.ask_typed("Dangerous fleet action", body, "RUN ALL")
-        return await self.ctx.ask_yes_no("Run on fleet?", body, "Run on all")
+            return await self.ctx.ask_typed(_t("Dangerous fleet action"), body, _t("RUN ALL"))
+        return await self.ctx.ask_yes_no(_t("Run on fleet?"), body, _t("Run on all"))
 
     # ---- live dialog ----
     def _show_live_dialog(self, command: str, sudo: bool) -> None:
-        self.fleet_status.value = "Starting…"
+        _t = self._t
+        self.fleet_status.value = _t("Starting…")
         self._render_fleet_rows()
         dlg = ft.AlertDialog(
             scrollable=True,
-            title=ft.Row([ft.Text("Fleet run", expand=True, weight=ft.FontWeight.W_600),
-                          ft.Text(f"sudo" if sudo else "", size=11, opacity=0.7)]),
+            title=ft.Row([ft.Text(_t("Fleet run"), expand=True, weight=ft.FontWeight.W_600),
+                          ft.Text(_t("sudo") if sudo else "", size=11, opacity=0.7)]),
             modal=True,
             content=ft.Container(width=480, height=min(420, (page.height or 600) - 200), content=ft.Column([
                 ft.Text(f"$ {command[:120]}", font_family="monospace", size=11, opacity=0.7,
@@ -403,17 +428,18 @@ class FleetView:
                 ft.Container(self.fleet_list, expand=True),
             ], spacing=8, expand=True)),
             actions=[
-                ft.TextButton("Stop all", on_click=lambda _: self._stop_all()),
-                ft.TextButton("Close", on_click=lambda _: self._close_fleet_dialog()),
+                ft.TextButton(_t("Stop all"), on_click=lambda _: self._stop_all()),
+                ft.TextButton(_t("Close"), on_click=lambda _: self._close_fleet_dialog()),
             ])
         self.fleet_dialog = dlg
         self.page.show_dialog(dlg)
 
     def _stop_all(self) -> None:
+        _t = self._t
         if self.runner is not None:
             self.runner.cancel()
-            toast(self.page, "Stopping every running task…")
-            self.fleet_status.value = "Stopping…"
+            toast(self.page, _t("Stopping every running task…"))
+            self.fleet_status.value = _t("Stopping…")
             self.page.update()
 
     def _close_fleet_dialog(self) -> None:
@@ -452,7 +478,7 @@ class FleetView:
                     *sub,
                 ], spacing=2, expand=True),
             ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.START))
-        self.fleet_list.controls = rows or [ft.Text("Waiting for first task…", opacity=0.7)]
+        self.fleet_list.controls = rows or [ft.Text(_t("Waiting for first task…"), opacity=0.7)]
 
 
 def _state_icon(state: RunState) -> str:

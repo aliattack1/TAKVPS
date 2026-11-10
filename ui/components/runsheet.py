@@ -8,6 +8,7 @@ from typing import Awaitable, Callable, Optional
 
 import flet as ft
 
+from services.i18n import translate
 from services.runner import WRONG_SUDO, RunReport, Runner, Step, strip_ansi
 from .common import toast
 
@@ -19,8 +20,10 @@ async def run_in_sheet(ctx, title: str, steps: list[Step], meta: dict,
                        hints: Optional[Callable[[str], Optional[str]]] = None) -> Optional[RunReport]:
     """Run `steps` over SSH, streaming output into a dialog. `meta`: kind/id/name/command for history."""
     page = ctx.page
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     if ctx.ssh.status.value != "connected":
-        toast(page, "Not connected.", error=True)
+        toast(page, _t("Not connected."), error=True)
         return None
     sudo_pw = None
     if any(s.sudo for s in steps):
@@ -33,14 +36,14 @@ async def run_in_sheet(ctx, title: str, steps: list[Step], meta: dict,
     out = ft.Text("", font_family="monospace", size=11, selectable=True)
     out_list = ft.ListView([out], expand=True, auto_scroll=True)
     ring = ft.ProgressRing(width=18, height=18, stroke_width=2)
-    status = ft.Text("Running…", weight=ft.FontWeight.W_600)
+    status = ft.Text(_t("Running…"), weight=ft.FontWeight.W_600)
     hint = ft.Text("", size=12, color=ft.Colors.AMBER, visible=False)
     labels = [ft.Text(f"○ {s.name}", size=12) for s in steps]
     step_col = ft.Column(labels, spacing=2, visible=len(steps) > 1)
-    stop_btn = ft.OutlinedButton("Stop", icon=ft.Icons.STOP)
-    close_btn = ft.TextButton("Close", disabled=True)
-    copy_btn = ft.TextButton("Copy output", icon=ft.Icons.COPY)
-    rb_btn = ft.FilledButton("Roll back", icon=ft.Icons.UNDO, visible=False, bgcolor=ft.Colors.ERROR)
+    stop_btn = ft.OutlinedButton(_t("Stop"), icon=ft.Icons.STOP)
+    close_btn = ft.TextButton(_t("Close"), disabled=True)
+    copy_btn = ft.TextButton(_t("Copy output"), icon=ft.Icons.COPY)
+    rb_btn = ft.FilledButton(_t("Roll back"), icon=ft.Icons.UNDO, visible=False, bgcolor=ft.Colors.ERROR)
     state = {"dirty": False, "scheduled": False}
 
     def redraw() -> None:

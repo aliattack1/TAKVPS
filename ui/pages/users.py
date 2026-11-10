@@ -8,6 +8,7 @@ import flet as ft
 
 from core.errors import TakError
 from services import users as U
+from services.i18n import translate
 from .. import theme
 from ..components.common import confirm, toast
 from ..context import AppContext
@@ -18,6 +19,9 @@ TABS = [("users", "Users"), ("keys", "SSH keys"), ("logins", "Logins")]
 class UsersView:
     def __init__(self, ctx: AppContext) -> None:
         self.ctx, self.page = ctx, ctx.page
+        # Persian translation helper bound to the user's language.
+        self._lang = ctx.store.data.language
+        self._t = lambda s: translate(s, self._lang)  # noqa: E731
         self.mode = "users"
         self.users: list[U.User] = []
         self.show_system = False
@@ -25,12 +29,12 @@ class UsersView:
         self.lines: list[U.AuthLine] | None = None
         self.last = ""
         self.seg = ft.SegmentedButton(selected=["users"], on_change=self._on_mode,
-                                      segments=[ft.Segment(value=k, label=ft.Text(v)) for k, v in TABS])
+                                      segments=[ft.Segment(value=k, label=ft.Text(self._t(v))) for k, v in TABS])
         self.progress = ft.ProgressBar(visible=False)
         self.list = ft.ListView(expand=True, spacing=8)
         self.control = ft.Container(padding=theme.SPACE, expand=True, content=ft.Column([
-            ft.Row([ft.Text("Users & keys", size=22, weight=ft.FontWeight.W_600, expand=True),
-                    ft.IconButton(ft.Icons.REFRESH, width=44, height=44, tooltip="Refresh",
+            ft.Row([ft.Text(self._t("Users & keys"), size=22, weight=ft.FontWeight.W_600, expand=True),
+                    ft.IconButton(ft.Icons.REFRESH, width=44, height=44, tooltip=self._t("Refresh"),
                                   on_click=lambda _: self.page.run_task(self.load))], scroll=ft.ScrollMode.AUTO),
             self.seg, self.progress, self.list], expand=True, spacing=8))
         self.render()
@@ -90,11 +94,11 @@ class UsersView:
     def render(self) -> None:
         out: list[ft.Control] = []
         if self.ctx.ssh.status.value != "connected":
-            out = [ft.Container(padding=24, content=ft.Text("Not connected.", opacity=0.7))]
+            out = [ft.Container(padding=24, content=ft.Text(self._t("Not connected."), opacity=0.7))]
         elif self.mode == "users":
-            out.append(ft.Switch(label="Show system accounts", value=self.show_system, on_change=self._on_sys))
+            out.append(ft.Switch(label=self._t("Show system accounts"), value=self.show_system, on_change=self._on_sys))
             for u in [u for u in self.users if self.show_system or u.human]:
-                chips = [self._chip("sudo/admin", ft.Colors.AMBER_700)] if u.sudo else []
+                chips = [self._chip(self._t("sudo/admin"), ft.Colors.AMBER_700)] if u.sudo else []
                 out.append(ft.Container(border_radius=theme.RADIUS, padding=theme.SPACE, ink=True,
                                         bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
                                         on_click=lambda _, n=u.name: self._open_keys(n),
@@ -105,10 +109,10 @@ class UsersView:
         elif self.mode == "keys":
             out += self._keys_ui()
         else:
-            out += [ft.FilledTonalButton("Failed login attempts", icon=ft.Icons.GPP_BAD,
+            out += [ft.FilledTonalButton(self._t("Failed login attempts"), icon=ft.Icons.GPP_BAD,
                                          on_click=lambda _: self.page.run_task(self.failed)),
-                    ft.Text("Recent logins", weight=ft.FontWeight.W_600),
-                    ft.Text(self.last.strip() or "(no data)", font_family="monospace", size=10, selectable=True)]
+                    ft.Text(self._t("Recent logins"), weight=ft.FontWeight.W_600),
+                    ft.Text(self.last.strip() or self._t("(no data)"), font_family="monospace", size=10, selectable=True)]
         self.list.controls = out
         try:
             self.page.update()
@@ -131,26 +135,26 @@ class UsersView:
     def _keys_ui(self) -> list[ft.Control]:
         humans = [u.name for u in self.users if u.human]
         out: list[ft.Control] = [
-            ft.Dropdown(label="User", value=self.key_user if self.key_user in humans else None,
+            ft.Dropdown(label=self._t("User"), value=self.key_user if self.key_user in humans else None,
                         options=[ft.DropdownOption(key=n) for n in humans], on_select=self._on_key_user),
-            ft.Row([ft.FilledButton("Add key", icon=ft.Icons.ADD, on_click=lambda _: self.add_key()),
+            ft.Row([ft.FilledButton(self._t("Add key"), icon=ft.Icons.ADD, on_click=lambda _: self.add_key()),
                     ft.Text(f"{self._keys_path(self._user(self.key_user))}" if self._user(self.key_user) else "", size=10, opacity=0.6,
                             expand=True, no_wrap=True)])]
         if self.lines is None:
-            return out + [ft.Text("Loading…", opacity=0.7)]
+            return out + [ft.Text(self._t("Loading…"), opacity=0.7)]
         for i, l in enumerate(self.lines):
             if not l.is_key:
                 continue
             out.append(ft.Container(border_radius=theme.RADIUS, padding=theme.SPACE, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
                 content=ft.Row([ft.Icon(ft.Icons.VPN_KEY), ft.Column([
-                    ft.Text(l.comment or "(no comment)", weight=ft.FontWeight.W_600, no_wrap=True),
+                    ft.Text(l.comment or self._t("(no comment)"), weight=ft.FontWeight.W_600, no_wrap=True),
                     ft.Text(f"{l.type} · {l.fingerprint}", size=10, opacity=0.7, font_family="monospace", selectable=True),
-                    ft.Text("options: " + l.options, size=10, opacity=0.6) if l.options else ft.Container()], spacing=1, expand=True),
-                    ft.IconButton(ft.Icons.DELETE, width=44, height=44, tooltip="Remove key",
+                    ft.Text(self._t("options: {opts}").format(opts=l.options), size=10, opacity=0.6) if l.options else ft.Container()], spacing=1, expand=True),
+                    ft.IconButton(ft.Icons.DELETE, width=44, height=44, tooltip=self._t("Remove key"),
                                   on_click=lambda _, i=i: self.page.run_task(self.remove_key, i))],
                     vertical_alignment=ft.CrossAxisAlignment.CENTER)))
         if not any(l.is_key for l in self.lines):
-            out.append(ft.Text("No authorized keys for this user.", opacity=0.7))
+            out.append(ft.Text(self._t("No authorized keys for this user."), opacity=0.7))
         return out
 
     def _on_key_user(self, e) -> None:
@@ -162,7 +166,7 @@ class UsersView:
         u = self._user(self.key_user)
         if u is None:
             return False
-        if not await self.ctx.safe_confirm("Change authorized keys", self.key_user):
+        if not await self.ctx.safe_confirm(self._t("Change authorized keys"), self.key_user):
             return False
         data = U.serialize(lines).encode()
         path, d = self._keys_path(u), posixpath.dirname(self._keys_path(u))
@@ -174,7 +178,7 @@ class UsersView:
             else:
                 r = await self.ctx.run_privileged(f"install -d -m 700 -o {shlex.quote(u.name)} -g {shlex.quote(str(u.gid))} {shlex.quote(d)}")
                 if r is None or not r.ok:
-                    toast(self.page, "Couldn't prepare the .ssh folder.", error=True)
+                    toast(self.page, self._t("Couldn't prepare the .ssh folder."), error=True)
                     return False
                 await self.ctx.write_privileged(path, data, 0o600, u.name, str(u.gid))
         except TakError as e:
@@ -185,7 +189,7 @@ class UsersView:
 
     def add_key(self) -> None:
         page = self.page
-        tf = ft.TextField(label="Public key", multiline=True, min_lines=3, max_lines=6, hint_text="ssh-ed25519 AAAA… name",
+        tf = ft.TextField(label=self._t("Public key"), multiline=True, min_lines=3, max_lines=6, hint_text="ssh-ed25519 AAAA… name",
                           text_style=ft.TextStyle(font_family="monospace", size=11))
 
         async def go(_):
@@ -195,14 +199,14 @@ class UsersView:
                 return
             page.pop_dialog()
             if await self._save_keys((self.lines or []) + [key]):
-                toast(page, "Key added.")
+                toast(page, self._t("Key added."))
                 await self.load()
 
         page.show_dialog(ft.AlertDialog(
-                        title=ft.Text(f"Add key for {self.key_user}"), scrollable=True,
-            content=ft.Container(width=340, content=ft.Column([tf, ft.Text("Paste the PUBLIC key (the .pub file). Never paste a private key.",
+                        title=ft.Text(self._t("Add key for {user}").format(user=self.key_user)), scrollable=True,
+            content=ft.Container(width=340, content=ft.Column([tf, ft.Text(self._t("Paste the PUBLIC key (the .pub file). Never paste a private key."),
                                                                             size=11, opacity=0.7)], tight=True)),
-            actions=[ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()), ft.FilledButton("Add", on_click=go)]))
+            actions=[ft.TextButton(self._t("Cancel"), on_click=lambda _: page.pop_dialog()), ft.FilledButton(self._t("Add"), on_click=go)]))
 
     async def remove_key(self, idx: int) -> None:
         lines = self.lines or []
@@ -211,17 +215,23 @@ class UsersView:
         ctx = self.ctx
         mine_key_login = ctx.active and ctx.active.auth == "key" and self.key_user == self.me
         if mine_key_login and remaining == 0:
-            if not await ctx.ask_typed("Remove your last key?", "You connect to this server with an SSH key. Removing the last "
-                                       "authorized key for this account would lock you out.", "REMOVE"):
+            if not await ctx.ask_typed(self._t("Remove your last key?"),
+                                       self._t("You connect to this server with an SSH key. Removing the last "
+                                       "authorized key for this account would lock you out."), "REMOVE"):
                 return
         elif mine_key_login and not await ctx.ask_yes_no(
-                "Remove key?", f"{k.comment or k.fingerprint}\n\nYou connect with a key. Make sure this isn't the key this app uses, "
-                "or you'll lose access.", "Remove"):
+                self._t("Remove key?"),
+                self._t("{key}\n\nYou connect with a key. Make sure this isn't the key this app uses, "
+                "or you'll lose access.").format(key=k.comment or k.fingerprint),
+                self._t("Remove")):
             return
-        elif not mine_key_login and not await ctx.ask_yes_no("Remove key?", f"{k.comment or k.fingerprint}\n{k.fingerprint}", "Remove"):
+        elif not mine_key_login and not await ctx.ask_yes_no(
+                self._t("Remove key?"),
+                self._t("{key}\n{fingerprint}").format(key=k.comment or k.fingerprint, fingerprint=k.fingerprint),
+                self._t("Remove")):
             return
         if await self._save_keys(lines[:idx] + lines[idx + 1:]):
-            toast(self.page, "Key removed.")
+            toast(self.page, self._t("Key removed."))
             await self.load()
 
     async def failed(self) -> None:
@@ -234,13 +244,13 @@ class UsersView:
                 text = r.stdout
                 break
         ips = U.top_ips(text)
-        body = ft.Column([ft.Text("Top sources", weight=ft.FontWeight.W_600)] +
+        body = ft.Column([ft.Text(self._t("Top sources"), weight=ft.FontWeight.W_600)] +
                          [ft.Row([ft.Text(ip, font_family="monospace", expand=True), ft.Text(f"× {n}")]) for ip, n in ips] +
-                         [ft.Divider(), ft.Text(text.strip()[-3000:] or "No failed attempts found (or logs aren't readable).",
+                         [ft.Divider(), ft.Text(text.strip()[-3000:] or self._t("No failed attempts found (or logs aren't readable)."),
                                                 font_family="monospace", size=10, selectable=True)], tight=True)
-        self.page.show_dialog(ft.AlertDialog(title=ft.Text("Failed login attempts"), scrollable=True,
+        self.page.show_dialog(ft.AlertDialog(title=ft.Text(self._t("Failed login attempts")), scrollable=True,
                                              content=ft.Container(width=min(380, (page.width or 400) - 32), content=body),
-                                             actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
+                                             actions=[ft.TextButton(self._t("Close"), on_click=lambda _: self.page.pop_dialog())]))
 
 
 def users_page(ctx: AppContext) -> ft.Control:

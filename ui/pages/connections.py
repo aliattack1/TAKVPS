@@ -130,33 +130,35 @@ async def _quick_connect(ctx: AppContext, p: ConnectionProfile) -> None:
 # ---------------------------------------------------------------- editor
 def open_editor(ctx: AppContext, existing: ConnectionProfile | None) -> None:
     page = ctx.page
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     p = existing or ConnectionProfile(name="", host="", username="root")
     others = [x for x in ctx.conns.list() if x.id != p.id]
     saved_pw = bool(existing and existing.password_enc)
     saved_key = bool(existing and existing.key_enc)
 
-    name = ft.TextField(label="Name", value=p.name)
-    host = ft.TextField(label="Host or IP", value=p.host, keyboard_type=ft.KeyboardType.URL)
-    port = ft.TextField(label="Port", value=str(p.port), keyboard_type=ft.KeyboardType.NUMBER, width=100)
-    user = ft.TextField(label="Username", value=p.username, expand=True)
-    password = ft.TextField(label="Password", password=True, can_reveal_password=True,
-                            hint_text="Leave blank to keep saved" if saved_pw else "Blank = ask each time")
-    key = ft.TextField(label="Private key (paste PEM)", multiline=True, min_lines=3, max_lines=5,
-                       hint_text="Saved — paste to replace" if saved_key else "-----BEGIN OPENSSH PRIVATE KEY-----")
-    passphrase = ft.TextField(label="Key passphrase (optional)", password=True, can_reveal_password=True,
-                              hint_text="Leave blank to keep saved" if (existing and existing.passphrase_enc) else None)
-    jump = ft.Dropdown(label="Jump host (optional)", value=p.jump_id or "",
-                       options=[ft.DropdownOption(key="", text="None")] +
+    name = ft.TextField(label=_t("Name"), value=p.name)
+    host = ft.TextField(label=_t("Host or IP"), value=p.host, keyboard_type=ft.KeyboardType.URL)
+    port = ft.TextField(label=_t("Port"), value=str(p.port), keyboard_type=ft.KeyboardType.NUMBER, width=100)
+    user = ft.TextField(label=_t("Username"), value=p.username, expand=True)
+    password = ft.TextField(label=_t("Password"), password=True, can_reveal_password=True,
+                            hint_text=_t("Leave blank to keep saved") if saved_pw else _t("Blank = ask each time"))
+    key = ft.TextField(label=_t("Private key (paste PEM)"), multiline=True, min_lines=3, max_lines=5,
+                       hint_text=_t("Saved — paste to replace") if saved_key else "-----BEGIN OPENSSH PRIVATE KEY-----")
+    passphrase = ft.TextField(label=_t("Key passphrase (optional)"), password=True, can_reveal_password=True,
+                              hint_text=_t("Leave blank to keep saved") if (existing and existing.passphrase_enc) else None)
+    jump = ft.Dropdown(label=_t("Jump host (optional)"), value=p.jump_id or "",
+                       options=[ft.DropdownOption(key="", text=_t("None"))] +
                                [ft.DropdownOption(key=o.id, text=o.name) for o in others])
-    tags = ft.TextField(label="Tags (comma separated)", value=", ".join(p.tags))
+    tags = ft.TextField(label=_t("Tags (comma separated)"), value=", ".join(p.tags))
     color = [p.color]
     swatch_row = ft.Row(wrap=True)
     # per-server custom instructions for the AI assistant.
     ai_note = ft.TextField(
-        label="AI instructions for this server (optional)",
+        label=_t("AI instructions for this server (optional)"),
         value=getattr(p, "ai_context", "") or "",
         multiline=True, min_lines=2, max_lines=4,
-        hint_text="e.g. 'Production blog — don't restart nginx during 09:00–17:00 UTC'")
+        hint_text=_t("e.g.") + " 'Production blog — don't restart nginx during 09:00–17:00 UTC'")
     result = ft.Text("", size=12)
 
     def draw_swatches():
@@ -176,12 +178,12 @@ def open_editor(ctx: AppContext, existing: ConnectionProfile | None) -> None:
             picker = ft.FilePicker()
             page.services.append(picker)
             page.update()
-            files = await picker.pick_files(dialog_title="Select private key file")
+            files = await picker.pick_files(dialog_title=_t("Select private key file"))
             if files:
                 key.value = Path(files[0].path).read_text("utf-8")
                 page.update()
         except Exception:  # noqa: BLE001
-            toast(page, "Could not read that file. Paste the key text instead.", error=True)
+            toast(page, _t("Could not read that file. Paste the key text instead."), error=True)
 
     # in-app SSH key generation. Generates an ed25519 key pair
     # (the modern default) and fills the private-key field; the public key is
@@ -189,9 +191,9 @@ def open_editor(ctx: AppContext, existing: ConnectionProfile | None) -> None:
     def generate_key(_=None):
         from services.sshkeygen import (DEFAULT_ALG, DEFAULT_RSA_BITS, SUPPORTED_ALGS,
                                          default_comment, generate_keypair)
-        alg_dd = ft.Dropdown(label="Algorithm", value=DEFAULT_ALG, expand=True,
+        alg_dd = ft.Dropdown(label=_t("Algorithm"), value=DEFAULT_ALG, expand=True,
                             options=[ft.DropdownOption(key=a, text=a) for a in SUPPORTED_ALGS])
-        comment_field = ft.TextField(label="Comment (optional)",
+        comment_field = ft.TextField(label=_t("Comment (optional)"),
                                        value=default_comment(p.username, p.host),
                                        dense=True, expand=True)
         result_text = ft.Text("", size=11, selectable=True)
@@ -221,19 +223,17 @@ def open_editor(ctx: AppContext, existing: ConnectionProfile | None) -> None:
 
         dlg = ft.AlertDialog(
             scrollable=True,
-            title=ft.Text("Generate SSH key pair"), modal=True,
+            title=ft.Text(_t("Generate SSH key pair")), modal=True,
             content=ft.Container(width=min(420, (page.width or 400) - 32), content=ft.Column([
-                ft.Text("Generates a new key pair in OpenSSH format. The private key "
-                         "will fill the connection editor's key field; the public key "
-                         "below must be installed on the server before you can connect.",
+                ft.Text(_t("Generates a new key pair in OpenSSH format. The private key will fill the connection editor's key field; the public key below must be installed on the server before you can connect."),
                          size=12, opacity=0.7),
                 ft.Row([alg_dd, comment_field], spacing=8),
-                ft.FilledTonalButton("Generate", icon=ft.Icons.KEY, on_click=do_generate),
+                ft.FilledTonalButton(_t("Generate"), icon=ft.Icons.KEY, on_click=do_generate),
                 result_text,
             ], scroll=ft.ScrollMode.AUTO, tight=True)),
             actions=[
-                ft.TextButton("Install on server…", on_click=lambda _: _install_generated_key(page, ctx, result_text)),
-                ft.TextButton("Done", on_click=lambda _: page.pop_dialog()),
+                ft.TextButton(_t("Install on server…"), on_click=lambda _: _install_generated_key(page, ctx, result_text)),
+                ft.TextButton(_t("Done"), on_click=lambda _: page.pop_dialog()),
             ])
         page.show_dialog(dlg)
 
@@ -249,10 +249,10 @@ def open_editor(ctx: AppContext, existing: ConnectionProfile | None) -> None:
                 pub_line = ln.strip()
                 break
         if not pub_line:
-            toast(page, "Generate a key first.", error=True)
+            toast(page, _t("Generate a key first."), error=True)
             return
         if ctx.ssh.status.value != "connected":
-            toast(page, "Connect to a server first, then use this to install the key.",
+            toast(page, _t("Connect to a server first, then use this to install the key."),
                   error=True)
             return
         page.run_task(_install_key_on_server, ctx, pub_line)
@@ -273,7 +273,7 @@ def open_editor(ctx: AppContext, existing: ConnectionProfile | None) -> None:
             return
         # Check it's not already installed.
         if is_already_installed(existing_text, pub_key_line):
-            toast(ctx.page, "That key is already authorized on this server.")
+            toast(ctx.page, _t("That key is already authorized on this server."))
             return
         # Validate the key format.
         parsed, err = validate_new_key(pub_key_line, parse_authorized_keys(existing_text))
@@ -281,7 +281,7 @@ def open_editor(ctx: AppContext, existing: ConnectionProfile | None) -> None:
             toast(ctx.page, err, error=True)
             return
         # Confirm before writing.
-        if not await ctx.safe_confirm("Install public key",
+        if not await ctx.safe_confirm(_t("Install public key"),
                                        f"Append this key to {auth_file}?\n\n{pub_key_line}"):
             return
         # Install: mkdir + append.
@@ -297,14 +297,14 @@ def open_editor(ctx: AppContext, existing: ConnectionProfile | None) -> None:
 
     key_box = ft.Column([key,
                          ft.Row([
-                             ft.TextButton("Import key file", icon=ft.Icons.FILE_OPEN, on_click=import_key),
-                             ft.TextButton("Generate new…", icon=ft.Icons.KEY, on_click=generate_key),
+                             ft.TextButton(_t("Import key file"), icon=ft.Icons.FILE_OPEN, on_click=import_key),
+                             ft.TextButton(_t("Generate new…"), icon=ft.Icons.KEY, on_click=generate_key),
                          ], spacing=8),
                          passphrase], visible=p.auth == "key")
     auth = ft.SegmentedButton(
         selected=[p.auth],
-        segments=[ft.Segment(value="password", label=ft.Text("Password")),
-                  ft.Segment(value="key", label=ft.Text("SSH key"))],
+        segments=[ft.Segment(value="password", label=ft.Text(_t("Password"))),
+                  ft.Segment(value="key", label=ft.Text(_t("SSH key")))],
         on_change=lambda e: (setattr(pw_box, "visible", "password" in e.control.selected),
                              setattr(key_box, "visible", "key" in e.control.selected), page.update()))
     draw_swatches()
@@ -337,7 +337,7 @@ def open_editor(ctx: AppContext, existing: ConnectionProfile | None) -> None:
             result.value, result.color = f"✗ {e}", ft.Colors.ERROR
             page.update()
             return
-        result.value, result.color = "Testing…", None
+        result.value, result.color = _t("Testing…"), None
         page.update()
         ok, msg = await ctx.test(creds)
         result.value = ("✓ " if ok else "✗ ") + msg
@@ -359,35 +359,36 @@ def open_editor(ctx: AppContext, existing: ConnectionProfile | None) -> None:
         ctx.refresh_ui()
 
     page.show_dialog(ft.AlertDialog(
-                title=ft.Text("Edit server" if existing else "Add server"), scrollable=True,
+                title=ft.Text(_t("Edit server") if existing else _t("Add server")), scrollable=True,
         content=ft.Container(width=340, content=ft.Column(
             [name, host, ft.Row([user, port]), auth, pw_box, key_box, jump, tags,
-             ft.Text("Color", size=12, opacity=0.7), swatch_row,
+             ft.Text(_t("Color"), size=12, opacity=0.7), swatch_row,
              ft.Divider(height=1),
-             ft.Text("AI instructions", size=12, opacity=0.7),
+             ft.Text(_t("AI instructions"), size=12, opacity=0.7),
              ai_note,
-             ft.Text("Added to the AI assistant's system prompt when this server is active. "
-                     "Use it for hard constraints the model should never violate.",
+             ft.Text(_t("Added to the AI assistant's system prompt when this server is active. Use it for hard constraints the model should never violate."),
                      size=11, opacity=0.6),
              result],
             tight=True, spacing=theme.SPACE)),
-        actions=[ft.TextButton("Test", on_click=test),
-                 ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
-                 ft.FilledButton("Save", on_click=save)]))
+        actions=[ft.TextButton(_t("Test"), on_click=test),
+                 ft.TextButton(_t("Cancel"), on_click=lambda _: page.pop_dialog()),
+                 ft.FilledButton(_t("Save"), on_click=save)]))
 
 
 # ---------------------------------------------------------------- import / export
 async def do_export(ctx: AppContext) -> None:
     page = ctx.page
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     if not ctx.conns.list():
-        toast(page, "Nothing to export.")
+        toast(page, _t("Nothing to export."))
         return
-    pw = await ctx.ask_text("Export connections",
-                            "Choose an export passphrase (min 8 chars)", password=True, ok="Export")
+    pw = await ctx.ask_text(_t("Export connections"),
+                            _t("Choose an export passphrase (min 8 chars)"), password=True, ok=_t("Export"))
     if pw is None:
         return
     if len(pw) < 8:
-        toast(page, "Passphrase must be at least 8 characters.", error=True)
+        toast(page, _t("Passphrase must be at least 8 characters."), error=True)
         return
     try:
         if not await ctx.ensure_unlocked():
@@ -398,19 +399,20 @@ async def do_export(ctx: AppContext) -> None:
         return
     page.show_dialog(ft.AlertDialog(
         scrollable=True,
-        title=ft.Text("Encrypted export"),
+        title=ft.Text(_t("Encrypted export")),
         content=ft.Column([
-            ft.Text("Long-press the text to select and copy it. It contains your saved credentials, "
-                    "encrypted with the passphrase you just chose. Keep that passphrase safe.", size=12),
+            ft.Text(_t("Long-press the text to select and copy it. It contains your saved credentials, encrypted with the passphrase you just chose. Keep that passphrase safe."), size=12),
             ft.TextField(value=blob, multiline=True, min_lines=4, max_lines=6, read_only=True)],
             tight=True, width=340),
-        actions=[ft.FilledButton("Close", on_click=lambda _: page.pop_dialog())]))
+        actions=[ft.FilledButton(_t("Close"), on_click=lambda _: page.pop_dialog())]))
 
 
 def open_import(ctx: AppContext) -> None:
     page = ctx.page
-    text = ft.TextField(label="Paste export text", multiline=True, min_lines=4, max_lines=6)
-    pw = ft.TextField(label="Export passphrase", password=True, can_reveal_password=True)
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
+    text = ft.TextField(label=_t("Paste export text"), multiline=True, min_lines=4, max_lines=6)
+    pw = ft.TextField(label=_t("Export passphrase"), password=True, can_reveal_password=True)
 
     async def do(_):
         try:
@@ -425,7 +427,7 @@ def open_import(ctx: AppContext) -> None:
         toast(page, f"Imported {len(created)} server(s).")
 
     page.show_dialog(ft.AlertDialog(
-                title=ft.Text("Import connections"), scrollable=True,
+                title=ft.Text(_t("Import connections")), scrollable=True,
         content=ft.Container(width=340, content=ft.Column([text, pw], tight=True)),
-        actions=[ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
-                 ft.FilledButton("Import", on_click=do)]))
+        actions=[ft.TextButton(_t("Cancel"), on_click=lambda _: page.pop_dialog()),
+                 ft.FilledButton(_t("Import"), on_click=do)]))

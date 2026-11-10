@@ -66,6 +66,10 @@ def _span(text: str, style: tuple) -> ft.TextSpan:
 class TerminalController:
     def __init__(self, ctx: AppContext) -> None:
         self.ctx, self.page, self.s = ctx, ctx.page, ctx.store.data
+        # Persian translation helper.
+        from services.i18n import translate
+        self._lang = ctx.store.data.language
+        self._t = lambda s: translate(s, self._lang)  # noqa: E731
         self.sessions: list[TerminalSession] = []
         self.active = 0
         self.view: Optional["TerminalView"] = None
@@ -113,7 +117,7 @@ class TerminalController:
         """Open a new PTY. If `tmux_name` is given and tmux is installed, attach to that
         named session (creating it if needed) so the session persists across SSH drops."""
         if self.ctx.ssh.status.value != "connected":
-            toast(self.page, "Not connected.", error=True)
+            toast(self.page, self._t("Not connected."), error=True)
             return
         # Lazy-probe tmux the first time someone asks for a persistent session.
         if tmux_name and self.tmux_installed is None:
@@ -121,13 +125,13 @@ class TerminalController:
         command: Optional[str] = None
         if tmux_name:
             if not self.tmux_installed:
-                toast(self.page, "tmux isn't installed on this server — opening a normal shell.", error=False)
+                toast(self.page, self._t("tmux isn't installed on this server — opening a normal shell."), error=False)
             else:
                 try:
                     command = tmux_svc.new_or_attach_command(tmux_name)
                     self.last_session_name = tmux_name
                 except ValueError:
-                    toast(self.page, "That session name has invalid characters.", error=True)
+                    toast(self.page, self._t("That session name has invalid characters."), error=True)
                     return
         cols, rows = self.size()
         sess = TerminalSession(self.ctx.ssh, self.page.run_task, cols, rows, self._on_update,
@@ -138,7 +142,7 @@ class TerminalController:
             toast(self.page, e.message, error=True)
             return
         except Exception:  # noqa: BLE001
-            toast(self.page, "Could not start a shell on the server.", error=True)
+            toast(self.page, self._t("Could not start a shell on the server."), error=True)
             return
         # Make the tab name reflect the tmux session if we attached to one.
         if tmux_name:
@@ -173,12 +177,11 @@ class TerminalController:
     async def open_sessions_dialog(self) -> None:
         """Show the 'Persistent sessions' dialog: list / create / attach / kill."""
         if self.ctx.ssh.status.value != "connected":
-            toast(self.page, "Not connected.", error=True)
+            toast(self.page, self._t("Not connected."), error=True)
             return
         await self.refresh_tmux()
         if self.tmux_installed is False:
-            toast(self.page, "tmux isn't installed on this server. Install it (`apt install tmux` etc.) "
-                  "to enable persistent sessions.", error=True)
+            toast(self.page, self._t("tmux isn't installed on this server. Install it (`apt install tmux` etc.) to enable persistent sessions."), error=True)
             return
         view = self.view
         if view is None:
@@ -189,7 +192,7 @@ class TerminalController:
         try:
             cmd = tmux_svc.kill_session_command(name)
             await self.ctx.ssh.run(cmd, timeout=10)
-            toast(self.page, f"Killed tmux session '{name}'.")
+            toast(self.page, self._t("Killed tmux session '{name}'.") if False else f"{self._t('Killed tmux session')} '{name}'.")
         except (TakError, ValueError) as e:
             toast(self.page, getattr(e, "message", str(e)), error=True)
             return
@@ -293,7 +296,7 @@ class TerminalController:
     def show_history_dialog(self) -> None:
         """show a dialog listing the command history for easy recall."""
         if not self.cmd_history:
-            toast(self.page, "No command history yet.")
+            toast(self.page, self._t("No command history yet."))
             return
         col = ft.Column(spacing=2, scroll=ft.ScrollMode.AUTO, expand=True)
         for i, cmd in enumerate(reversed(self.cmd_history)):
@@ -310,10 +313,10 @@ class TerminalController:
                 ])))
         self.page.show_dialog(ft.AlertDialog(
             scrollable=True,
-            title=ft.Text(f"Command history ({len(self.cmd_history)})"), modal=True,
+            title=ft.Text(f"{self._t('Command history')} ({len(self.cmd_history)})"), modal=True,
             content=ft.Container(width=min(400, (self.page.width or 400) - 32), height=min(350, (page.height or 600) - 200), content=col),
-            actions=[ft.TextButton("Clear history", on_click=lambda _: (setattr(self, "cmd_history", []), setattr(self, "cmd_history_idx", -1), self.page.pop_dialog())),
-                     ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
+            actions=[ft.TextButton(self._t("Clear history"), on_click=lambda _: (setattr(self, "cmd_history", []), setattr(self, "cmd_history_idx", -1), self.page.pop_dialog())),
+                     ft.TextButton(self._t("Close"), on_click=lambda _: self.page.pop_dialog())]))
 
     def on_key(self, e) -> None:
         """capture ALL keyboard events directly.
@@ -498,9 +501,9 @@ class TerminalController:
             return
         try:
             await (await self._clipboard()).set(self.session.screen.text())
-            toast(self.page, "Terminal output copied.")
+            toast(self.page, self._t("Terminal output copied."))
         except Exception:  # noqa: BLE001
-            toast(self.page, "Couldn't access the clipboard here.", error=True)
+            toast(self.page, self._t("Couldn't access the clipboard here."), error=True)
 
     async def export_output(self) -> None:
         """save terminal output to a local file via the file picker."""
@@ -522,9 +525,9 @@ class TerminalController:
     async def copy_text(self, text: str) -> None:
         try:
             await (await self._clipboard()).set(text)
-            toast(self.page, "Copied.")
+            toast(self.page, self._t("Copied."))
         except Exception:  # noqa: BLE001
-            toast(self.page, "Couldn't access the clipboard here.", error=True)
+            toast(self.page, self._t("Couldn't access the clipboard here."), error=True)
 
     def tail(self, lines: int = 60) -> str:
         s = self.session
@@ -533,7 +536,7 @@ class TerminalController:
     def ask_ai_about_output(self) -> None:
         tail = self.tail(60)
         if not tail.strip():
-            toast(self.page, "The terminal is empty.")
+            toast(self.page, self._t("The terminal is empty."))
             return
         self.ctx.open_chat("Explain this terminal output and tell me what to do next:\n\n```\n" + tail + "\n```")
 
@@ -598,7 +601,7 @@ class TerminalView:
             on_click=self._on_output_tap,
         )
         self.title = ft.Text("", size=11, opacity=0.7, no_wrap=True)
-        self.ctrl_btn = ft.TextButton("Ctrl", height=44, on_click=lambda _: ctl.toggle_ctrl())
+        self.ctrl_btn = ft.TextButton(self._t("Ctrl"), height=44, on_click=lambda _: ctl.toggle_ctrl())
         self.input = self._make_input()
         # search-in-scrollback overlay. Hidden by default;
         # the Find toolbar button toggles it.
@@ -718,14 +721,14 @@ class TerminalView:
     def _make_find_bar(self) -> ft.Control:
         """A collapsible search bar above the terminal output. Hidden by default."""
         self._find_field = ft.TextField(
-            hint_text="Find in output…", dense=True, expand=True, border_radius=8,
+            hint_text=self._t("Find in output…"), dense=True, expand=True, border_radius=8,
             on_change=lambda _: self._run_find(),
             on_submit=lambda _: self._find_next(),
             autofocus=True)
         self._find_status = ft.Text("", size=11, opacity=0.7, no_wrap=True)
-        self._find_case = ft.IconButton(ft.Icons.TEXT_FIELDS, tooltip="Match case", width=36, height=36,
+        self._find_case = ft.IconButton(ft.Icons.TEXT_FIELDS, tooltip=self._t("Match case"), width=36, height=36,
                                          selected=False, on_click=self._toggle_case)
-        self._find_regex = ft.IconButton(ft.Icons.CODE, tooltip="Regex", width=36, height=36,
+        self._find_regex = ft.IconButton(ft.Icons.CODE, tooltip=self._t("Regex"), width=36, height=36,
                                           selected=False, on_click=self._toggle_regex)
         bar = ft.Container(
             visible=False, padding=ft.Padding.symmetric(horizontal=4, vertical=2),
@@ -735,12 +738,12 @@ class TerminalView:
                 self._find_field,
                 self._find_case,
                 self._find_regex,
-                ft.IconButton(ft.Icons.ARROW_UPWARD, tooltip="Previous", width=36, height=36,
+                ft.IconButton(ft.Icons.ARROW_UPWARD, tooltip=self._t("Previous"), width=36, height=36,
                               on_click=lambda _: self._find_next(forward=False)),
-                ft.IconButton(ft.Icons.ARROW_DOWNWARD, tooltip="Next", width=36, height=36,
+                ft.IconButton(ft.Icons.ARROW_DOWNWARD, tooltip=self._t("Next"), width=36, height=36,
                               on_click=lambda _: self._find_next(forward=True)),
                 self._find_status,
-                ft.IconButton(ft.Icons.CLOSE, tooltip="Close find", width=36, height=36,
+                ft.IconButton(ft.Icons.CLOSE, tooltip=self._t("Close find"), width=36, height=36,
                               on_click=lambda _: self._toggle_find(visible=False)),
             ], spacing=2, scroll=ft.ScrollMode.AUTO))
         return bar
@@ -822,7 +825,7 @@ class TerminalView:
         as a thin bar so the user can tap it to open the soft keyboard."""
         if _is_mobile():
             # Mobile: keep a visible thin input bar so tapping it opens the keyboard.
-            kw = dict(value=SENTINEL, hint_text="Tap to type…", dense=True,
+            kw = dict(value=SENTINEL, hint_text=self._t("Tap to type…"), dense=True,
                       on_change=self._on_input, on_submit=self._on_submit,
                       border_radius=8, height=44, opacity=0.6)
         else:
@@ -886,7 +889,7 @@ class TerminalView:
         sessions = list(ctl.tmux_sessions)
         col = ft.Column(spacing=8, scroll=ft.ScrollMode.AUTO, expand=True)
         if not sessions:
-            col.controls.append(ft.Text("No persistent sessions on this server yet.",
+            col.controls.append(ft.Text(self._t("No persistent sessions on this server yet."),
                                          size=13, opacity=0.7))
         for s in sessions:
             attached = " (attached)" if s.attached else ""
@@ -896,35 +899,34 @@ class TerminalView:
                     ft.Text(f"{s.name}{attached}", weight=ft.FontWeight.W_600, no_wrap=True),
                     ft.Text(f"{s.windows} window(s) · {s.created}", size=11, opacity=0.7, no_wrap=True),
                 ], spacing=2, expand=True),
-                ft.IconButton(ft.Icons.PLAY_ARROW, tooltip="Attach in new tab", width=44, height=44,
+                ft.IconButton(ft.Icons.PLAY_ARROW, tooltip=self._t("Attach in new tab"), width=44, height=44,
                               on_click=lambda _, n=s.name: self.page.run_task(ctl.new_session, n)),
-                ft.IconButton(ft.Icons.DELETE, tooltip="Kill session", width=44, height=44,
+                ft.IconButton(ft.Icons.DELETE, tooltip=self._t("Kill session"), width=44, height=44,
                               on_click=lambda _, n=s.name: self.page.run_task(ctl.kill_tmux_session, n)),
             ], spacing=4))
-        name_field = ft.TextField(hint_text="Session name (letters, digits, _, -)",
+        name_field = ft.TextField(hint_text=self._t("Session name (letters, digits, _, -)"),
                                    dense=True, expand=True, border_radius=8)
 
         def create_new(_=None) -> None:
             n = (name_field.value or "").strip()
             if not n:
-                toast(self.page, "Pick a session name first.", error=True)
+                toast(self.page, self._t("Pick a session name first."), error=True)
                 return
             self.page.pop_dialog()
             self.page.run_task(ctl.new_session, n)
 
         name_field.on_submit = create_new
         col.controls.append(ft.Divider(height=1))
-        col.controls.append(ft.Text("Start a new persistent session:", size=12, opacity=0.7))
+        col.controls.append(ft.Text(self._t("Start a new persistent session:"), size=12, opacity=0.7))
         col.controls.append(ft.Row([name_field,
-                                    ft.IconButton(ft.Icons.ADD, tooltip="Create + attach", width=44, height=44,
+                                    ft.IconButton(ft.Icons.ADD, tooltip=self._t("Create + attach"), width=44, height=44,
                                                   on_click=create_new)], spacing=4))
-        col.controls.append(ft.Text("Tip: detach inside the session with Ctrl-B then D; "
-                                     "the session keeps running on the server.", size=11, opacity=0.6))
+        col.controls.append(ft.Text(self._t("Tip: detach inside the session with Ctrl-B then D; the session keeps running on the server."), size=11, opacity=0.6))
         dlg = ft.AlertDialog(
             scrollable=True,
-            title=ft.Text("Persistent sessions (tmux)"), modal=True,
+            title=ft.Text(self._t("Persistent sessions (tmux)")), modal=True,
             content=ft.Container(width=420, height=min(400, (page.height or 600) - 200), content=col),
-            actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())])
+            actions=[ft.TextButton(self._t("Close"), on_click=lambda _: self.page.pop_dialog())])
         self.page.show_dialog(dlg)
 
     def refresh_sessions_dialog(self) -> None:
@@ -937,7 +939,7 @@ class TerminalView:
         self.show_sessions_dialog()
 
     def refresh_ctrl(self) -> None:
-        self.ctrl_btn.content = "Ctrl ●" if self.ctl.ctrl_armed else "Ctrl"
+        self.ctrl_btn.content = (self._t("Ctrl") + " ●") if self.ctl.ctrl_armed else self._t("Ctrl")
 
     # ---------------------------------------------------------------- input handling
     def _reset_input(self) -> None:
@@ -988,7 +990,7 @@ class TerminalView:
                 content=ft.Row([ft.Text(s.name + ("" if s.alive else " ✕"), size=13, no_wrap=True),
                                 ft.IconButton(ft.Icons.CLOSE, icon_size=16, width=36, height=36,
                                               on_click=lambda _, i=i: ctl.close_session(i))], spacing=2)))
-        chips.append(ft.IconButton(ft.Icons.ADD, tooltip="New terminal", width=44, height=44,
+        chips.append(ft.IconButton(ft.Icons.ADD, tooltip=self._t("New terminal"), width=44, height=44,
                                    on_click=lambda _: self.page.run_task(ctl.new_session)))
         self.tabs.controls = chips
 
@@ -1029,22 +1031,22 @@ class TerminalView:
             self.page.pop_dialog()
             await self.ctl.copy_text(all_text)
 
-        col.controls.append(ft.FilledButton("Copy all output", icon=ft.Icons.CONTENT_COPY,
+        col.controls.append(ft.FilledButton(self._t("Copy all output"), icon=ft.Icons.CONTENT_COPY,
                                              on_click=lambda _: self.page.run_task(copy_all)))
         # export to file
         async def export_file(_=None) -> None:
             self.page.pop_dialog()
             await self.ctl.export_output()
-        col.controls.append(ft.FilledTonalButton("Save to file", icon=ft.Icons.SAVE,
+        col.controls.append(ft.FilledTonalButton(self._t("Save to file"), icon=ft.Icons.SAVE,
                                                   on_click=lambda _: self.page.run_task(export_file)))
 
         # Option 2: Copy a range (from line X to line Y)
         if total > 1:
             col.controls.append(ft.Divider(height=1))
-            col.controls.append(ft.Text("Or copy a range:", size=12, weight=ft.FontWeight.W_600))
-            from_field = ft.TextField(label="From line", value="1", width=100,
+            col.controls.append(ft.Text(self._t("Or copy a range:"), size=12, weight=ft.FontWeight.W_600))
+            from_field = ft.TextField(label=self._t("From line"), value="1", width=100,
                                        keyboard_type=ft.KeyboardType.NUMBER, dense=True)
-            to_field = ft.TextField(label="To line", value=str(total), width=100,
+            to_field = ft.TextField(label=self._t("To line"), value=str(total), width=100,
                                      keyboard_type=ft.KeyboardType.NUMBER, dense=True)
             preview = ft.Text("", size=11, font_family="monospace", no_wrap=False, opacity=0.7)
 
@@ -1057,7 +1059,7 @@ class TerminalView:
                     snippet = "\n".join(lines[lo-1:hi])
                     preview.value = snippet[:300] + ("…" if len(snippet) > 300 else "")
                 except (ValueError, TypeError):
-                    preview.value = "Enter valid line numbers."
+                    preview.value = self._t("Enter valid line numbers.")
                 self.page.update()
 
             from_field.on_change = update_preview
@@ -1071,19 +1073,19 @@ class TerminalView:
                         lo, hi = hi, lo
                     snippet = "\n".join(lines[lo-1:hi])
                 except (ValueError, TypeError):
-                    toast(self.page, "Enter valid line numbers.", error=True)
+                    toast(self.page, self._t("Enter valid line numbers."), error=True)
                     return
                 self.page.pop_dialog()
                 await self.ctl.copy_text(snippet)
 
             col.controls.append(ft.Row([from_field, ft.Text("–"), to_field], spacing=8))
             col.controls.append(preview)
-            col.controls.append(ft.FilledTonalButton("Copy range", icon=ft.Icons.CONTENT_COPY,
+            col.controls.append(ft.FilledTonalButton(self._t("Copy range"), icon=ft.Icons.CONTENT_COPY,
                                                       on_click=lambda _: self.page.run_task(copy_range)))
 
         # Option 3: Show full output in a selectable text (for manual selection)
         col.controls.append(ft.Divider(height=1))
-        col.controls.append(ft.Text("Or select manually below:", size=12, weight=ft.FontWeight.W_600))
+        col.controls.append(ft.Text(self._t("Or select manually below:"), size=12, weight=ft.FontWeight.W_600))
         selectable = ft.Text(all_text[:5000] + ("…" if len(all_text) > 5000 else ""),
                                font_family="monospace", size=10, selectable=True, no_wrap=False)
         col.controls.append(ft.Container(
@@ -1092,9 +1094,9 @@ class TerminalView:
 
         dlg = ft.AlertDialog(
             scrollable=True,
-            title=ft.Text("Copy terminal output"), modal=True,
+            title=ft.Text(self._t("Copy terminal output")), modal=True,
             content=ft.Container(width=min(400, (self.page.width or 400) - 32), height=min(450, (page.height or 600) - 200), content=col),
-            actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())])
+            actions=[ft.TextButton(self._t("Close"), on_click=lambda _: self.page.pop_dialog())])
         self.page.show_dialog(dlg)
         # Initial preview update
         if total > 1:
@@ -1145,15 +1147,15 @@ class TerminalView:
 
         dlg = ft.AlertDialog(
             scrollable=True,
-            title=ft.Text("Send to AI?", modal=True),
+            title=ft.Text(self._t("Send to AI?"), modal=True),
             content=ft.Container(width=min(400, (self.page.width or 400) - 32), content=ft.Column([
-                ft.Text("Line you pressed:", size=11, opacity=0.7),
+                ft.Text(self._t("Line you pressed:"), size=11, opacity=0.7),
                 ft.Text(row_text[:200], selectable=True, no_wrap=False, font_family="monospace", size=12),
             ], tight=True)),
             actions=[
-                ft.TextButton("Copy line", on_click=_copy),
-                ft.TextButton("Send to AI", on_click=_send),
-                ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
+                ft.TextButton(self._t("Copy line"), on_click=_copy),
+                ft.TextButton(self._t("Send to AI"), on_click=_send),
+                ft.TextButton(self._t("Cancel"), on_click=lambda _: self.page.pop_dialog()),
             ])
         self.page.show_dialog(dlg)
 
@@ -1202,7 +1204,7 @@ class TerminalView:
             if sig != self._sigs[y]:
                 self._sigs[y] = sig
                 self._rows[y].spans = [_span(t, st) for t, st in spans]
-        self.title.value = (scr.title or "") + ("" if s.alive else "   — session closed, tap + for a new one")
+        self.title.value = (scr.title or "") + ("" if s.alive else self._t("   — session closed, tap + for a new one"))
         if update:
             self.page.update()
             # only follow new output if the user was already at the bottom.

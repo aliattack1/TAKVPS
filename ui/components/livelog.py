@@ -6,6 +6,7 @@ from collections import deque
 
 import flet as ft
 
+from services.i18n import translate
 from services.runner import strip_ansi
 from .common import toast
 
@@ -15,8 +16,10 @@ SHOWN = 500
 
 async def open_live_tail(ctx, title: str, cmd: str, sudo: bool = False) -> None:
     page = ctx.page
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     if ctx.ssh.status.value != "connected":
-        toast(page, "Not connected.", error=True)
+        toast(page, _t("Not connected."), error=True)
         return
     pw = None
     if sudo and not (ctx.sysinfo and ctx.sysinfo.sudo == "root"):
@@ -29,9 +32,9 @@ async def open_live_tail(ctx, title: str, cmd: str, sudo: bool = False) -> None:
     st = {"paused": False, "partial": "", "dirty": False, "sched": False, "filter": ""}
     text = ft.Text("", font_family="monospace", size=11, selectable=True)
     lst = ft.ListView([text], expand=True, auto_scroll=True)
-    status = ft.Text("Following…", size=12)
-    flt = ft.TextField(hint_text="Filter lines", dense=True, expand=True)
-    pause = ft.IconButton(ft.Icons.PAUSE, tooltip="Pause", width=44, height=44)
+    status = ft.Text(_t("Following…"), size=12)
+    flt = ft.TextField(hint_text=_t("Filter lines"), dense=True, expand=True)
+    pause = ft.IconButton(ft.Icons.PAUSE, tooltip=_t("Pause"), width=44, height=44)
 
     def render() -> None:
         f = st["filter"]
@@ -59,8 +62,8 @@ async def open_live_tail(ctx, title: str, cmd: str, sudo: bool = False) -> None:
     def toggle_pause(_) -> None:
         st["paused"] = not st["paused"]
         pause.icon = ft.Icons.PLAY_ARROW if st["paused"] else ft.Icons.PAUSE
-        pause.tooltip = "Resume" if st["paused"] else "Pause"
-        status.value = "Paused (still collecting)" if st["paused"] else "Following…"
+        pause.tooltip = _t("Resume") if st["paused"] else _t("Pause")
+        status.value = _t("Paused (still collecting)") if st["paused"] else _t("Following…")
         if not st["paused"]:
             render()
         else:
@@ -86,8 +89,8 @@ async def open_live_tail(ctx, title: str, cmd: str, sudo: bool = False) -> None:
     page.show_dialog(ft.AlertDialog(
         modal=True, title=ft.Text(title, no_wrap=True),
         content=ft.Container(width=min(380, (page.width or 400) - 32), height=440, content=ft.Column([
-            ft.Row([flt, pause, ft.IconButton(ft.Icons.COPY, tooltip="Copy", width=44, height=44,
+            ft.Row([flt, pause, ft.IconButton(ft.Icons.COPY, tooltip=_t("Copy"), width=44, height=44,
                                               on_click=lambda _: page.run_task(ctx.terminal.copy_text, "\n".join(lines)))]),
             status, ft.Container(lst, expand=True, padding=8, border_radius=8,
                                  bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST)], expand=True)),
-        actions=[ft.TextButton("Close", on_click=close)]))
+        actions=[ft.TextButton(_t("Close"), on_click=close)]))

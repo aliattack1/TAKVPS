@@ -79,7 +79,8 @@ def scrollbar_row(*controls: ft.Control) -> ft.Row:
 
 
 def confirm(page: ft.Page, title: str, body: str, on_yes: Callable[[], Awaitable | None],
-            typed: str | None = None, yes_label: str = "Confirm") -> None:
+            typed: str | None = None, yes_label: str = "Confirm",
+            lang: str = "en") -> None:
     """Confirm dialog. If `typed` is given, the user must type it to proceed.
 
     Modern UX: the body text uses the secondary text color (so it doesn't
@@ -88,6 +89,7 @@ def confirm(page: ft.Page, title: str, body: str, on_yes: Callable[[], Awaitable
     (left in LTR, right in RTL) and Confirm on the trailing edge — this is
     Material 3's standard dialog action order.
     """
+    _t = lambda s: translate(s, lang)  # noqa: E731
     is_destructive = bool(typed) or yes_label.lower() in (
         "delete", "remove", "destroy", "discard", "force quit", "kill")
     field = ft.TextField(hint_text=f'Type "{typed}"', autofocus=True) if typed else None
@@ -116,7 +118,7 @@ def confirm(page: ft.Page, title: str, body: str, on_yes: Callable[[], Awaitable
             [ft.Text(body, color=ft.Colors.ON_SURFACE_VARIANT)] + ([field] if field else []),
             tight=True, spacing=SPACE_SM),
         actions=[
-            ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()),
+            ft.TextButton(_t("Cancel"), on_click=lambda _: page.pop_dialog()),
             ok,
         ]))
 
@@ -302,23 +304,25 @@ def loading_state(label: str = "Loading…") -> ft.Control:
         ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=SPACE_SM, tight=True))
 
 
-def error_state(message: str, retry: Optional[Callable[[], None]] = None) -> ft.Control:
+def error_state(message: str, retry: Optional[Callable[[], None]] = None,
+                lang: str = "en") -> ft.Control:
     """A modern centered error state — red icon + message + optional Retry.
 
     Per setproduct's empty-state UX guidance: clearly explain what happened,
     offer a corrective action (Retry), and don't blame the user.
     """
+    _t = lambda s: translate(s, lang)  # noqa: E731
     children: list[ft.Control] = [
         ft.Icon(ft.Icons.ERROR_OUTLINE, size=ICON_SIZE_XL,
                 color=ft.Colors.ERROR, opacity=0.85),
-        ft.Text("Something went wrong", size=16, weight=ft.FontWeight.W_600),
+        ft.Text(_t("Something went wrong"), size=16, weight=ft.FontWeight.W_600),
         ft.Text(message, size=12, opacity=0.7, text_align=ft.TextAlign.CENTER,
                 selectable=True),
     ]
     if retry:
         children.append(ft.Container(
             padding=ft.Padding.only(top=SPACE_SM),
-            content=ft.OutlinedButton("Retry", icon=ft.Icons.REFRESH, on_click=lambda _: retry()),
+            content=ft.OutlinedButton(_t("Retry"), icon=ft.Icons.REFRESH, on_click=lambda _: retry()),
         ))
     return ft.Container(
         alignment=ft.Alignment.CENTER, expand=True, padding=SPACE_XL,

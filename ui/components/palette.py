@@ -5,6 +5,7 @@ import posixpath
 
 import flet as ft
 
+from services.i18n import translate
 from services.palette import Item, search
 
 _ICON = {"page": ft.Icons.ARROW_FORWARD, "server": ft.Icons.DNS, "snippet": ft.Icons.BOLT, "service": ft.Icons.SETTINGS_SUGGEST,
@@ -48,12 +49,14 @@ async def _go(ctx, it: Item) -> None:
 
 def open_palette(ctx) -> None:
     page = ctx.page
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     items = build_items(ctx)
     # use expand=True instead of a fixed height so the list
     # shrinks when the keyboard opens on Android (the dialog's height is
     # constrained by the available viewport).
     results = ft.ListView(spacing=0, expand=True)
-    field = ft.TextField(hint_text="Search pages, servers, commands, services, files…", autofocus=True,
+    field = ft.TextField(hint_text=_t("Search pages, servers, commands, services, files…"), autofocus=True,
                          prefix_icon=ft.Icons.SEARCH, dense=True)
 
     def pick(it: Item) -> None:
@@ -66,7 +69,7 @@ def open_palette(ctx) -> None:
             leading=ft.Icon(_ICON.get(it.kind, ft.Icons.CIRCLE), size=20), dense=True,
             title=ft.Text(it.title, no_wrap=True), subtitle=ft.Text(f"{it.kind} · {it.subtitle}" if it.subtitle else it.kind,
                                                                     size=11, no_wrap=True),
-            on_click=lambda _, it=it: pick(it)) for it in found] or [ft.Container(padding=20, content=ft.Text("No matches.", opacity=0.7))]
+            on_click=lambda _, it=it: pick(it)) for it in found] or [ft.Container(padding=20, content=ft.Text(_t("No matches."), opacity=0.7))]
         page.update()
 
     field.on_change = draw
@@ -80,8 +83,8 @@ def open_palette(ctx) -> None:
         content=ft.Column([field, results], tight=True, expand=True))
     page.show_dialog(ft.AlertDialog(
         scrollable=True,
-        title=ft.Text("Search everything"), content=dialog_content,
-        actions=[ft.TextButton("Close", on_click=lambda _: page.pop_dialog())]))
+        title=ft.Text(_t("Search everything")), content=dialog_content,
+        actions=[ft.TextButton(_t("Close"), on_click=lambda _: page.pop_dialog())]))
     page.run_task(_first_draw, draw)
 
 

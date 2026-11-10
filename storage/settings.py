@@ -24,7 +24,7 @@ def data_dir() -> Path:
 @dataclass
 class Settings:
     theme_mode: str = "system"          # light | dark | system
-    language: str = "en"               # en | fa (Persian/Farsi for Myket)
+    language: str = "fa"               # fa (Persian) is the default; user can switch to en in Settings
     preset: str = "default"
     accent: str = "#3B82F6"
     font_scale: float = 1.0

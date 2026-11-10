@@ -28,6 +28,7 @@ from storage.snippets import RunHistory, SnippetStore
 from services.redact import redact
 from services.risk import LEVELS, classify
 from services.runner import WRONG_SUDO
+from services.i18n import translate
 from core.tunnels import TunnelManager
 from services.snippets import new_id
 from services.tunnels import FavoritesStore
@@ -96,7 +97,7 @@ class AppContext:
         # persistent transfer history — survives app restarts.
         self.transfer_history: TransferHistory = load_history(history_path(data_dir()))
         self.open_editor: Callable[[str], None] = lambda path: toast(
-            self.page, "The code editor is loading.")
+            self.page, translate("The code editor is loading.", self.store.data.language))
         # set by the shell
         self.navigate: Callable[[str], None] = lambda key: None
         self.refresh_ui: Callable[[], None] = lambda: None
@@ -325,7 +326,7 @@ class AppContext:
         if self._sudo_pw:
             return True, self._sudo_pw
         if info and info.sudo == "none":
-            toast(self.page, "This user has no sudo access on the server.", error=True)
+            toast(self.page, translate("This user has no sudo access on the server.", self.store.data.language), error=True)
             return False, None
         a = self.active
         if a and a.auth == "password" and a.password_enc and await self.ensure_unlocked():
@@ -366,7 +367,7 @@ class AppContext:
             if inspect.isawaitable(r):
                 await r
         except Exception:  # noqa: BLE001
-            toast(self.page, "Couldn't open the browser.", error=True)
+            toast(self.page, translate("Couldn't open the browser.", self.store.data.language), error=True)
 
     def log_action(self, cmd: str, exit_code, source: str = "action") -> None:
         """Record a state-changing command in the local activity log (secrets redacted)."""
@@ -441,7 +442,7 @@ class AppContext:
                 return False
             # scrypt is CPU-heavy: keep it off the UI thread
             if not await asyncio.to_thread(self.vault.unlock, pw):
-                toast(self.page, "Wrong passphrase.", error=True)
+                toast(self.page, translate("Wrong passphrase.", self.store.data.language), error=True)
         return True
 
     async def fill_password(self, creds: Credentials, auth: str) -> bool:

@@ -17,6 +17,7 @@ from core.errors import TakError
 from core.fmt import fmt_mtime, human_size
 from services import dbs as D
 from services.backups import is_backup_file, slug
+from services.i18n import translate
 from services.runner import Step
 from services.transfers import unique_local_path
 from storage.settings import resolve_download_dir
@@ -29,7 +30,9 @@ MAX_RENDER_ROWS = 200
 TABS = [("browse", "Browse"), ("query", "Query"), ("dumps", "Dumps")]
 
 
-def result_grid(res: D.Result) -> ft.Control:
+def result_grid(res: D.Result, _t=None) -> ft.Control:
+    if _t is None:
+        _t = lambda s: s  # noqa: E731
     if res.error:
         return ft.Text(res.error, color=ft.Colors.ERROR, font_family="monospace", size=11, selectable=True)
     if not res.columns:
@@ -38,7 +41,7 @@ def result_grid(res: D.Result) -> ft.Control:
         columns=[ft.DataColumn(ft.Text(c, size=11, weight=ft.FontWeight.W_700)) for c in res.columns], column_spacing=18,
         rows=[ft.DataRow(cells=[ft.DataCell(ft.Text((v if len(v) <= 60 else v[:59] + "…"), size=11)) for v in r[:len(res.columns)]])
               for r in res.rows[:MAX_RENDER_ROWS]])
-    more = [ft.Text(f"Showing {MAX_RENDER_ROWS} of {len(res.rows)} rows.", size=11, opacity=0.6)] if len(res.rows) > MAX_RENDER_ROWS else []
+    more = [ft.Text(_t("Showing {n} of {m} rows.").format(n=MAX_RENDER_ROWS, m=len(res.rows)), size=11, opacity=0.6)] if len(res.rows) > MAX_RENDER_ROWS else []
     return ft.Column([ft.Row([table], scroll=ft.ScrollMode.AUTO), *more], spacing=4)
 
 
@@ -53,6 +56,9 @@ def to_csv(res: D.Result) -> str:
 class DatabasesView:
     def __init__(self, ctx: AppContext) -> None:
         self.ctx, self.page = ctx, ctx.page
+        # Persian translation helper bound to the user's language.
+        self._lang = ctx.store.data.language
+        self._t = lambda s: translate(s, self._lang)  # noqa: E731
         self.engines: Optional[list[str]] = None
         self.engine, self.auth = "", D.Auth()
         self.mode = "browse"
@@ -64,16 +70,16 @@ class DatabasesView:
         self.redis_db = "0"
         self.msg = "Checking this server…"
         self.progress = ft.ProgressBar(visible=False)
-        self.engine_dd = ft.Dropdown(label="Engine", expand=True, on_select=self._on_engine)
+        self.engine_dd = ft.Dropdown(label=self._t("Engine"), expand=True, on_select=self._on_engine)
         self.seg = ft.SegmentedButton(selected=["browse"], on_change=self._on_mode,
-                                      segments=[ft.Segment(value=k, label=ft.Text(v)) for k, v in TABS])
-        self.sql = ft.TextField(label="Query / command", multiline=True, min_lines=3, max_lines=8,
+                                      segments=[ft.Segment(value=k, label=ft.Text(self._t(v))) for k, v in TABS])
+        self.sql = ft.TextField(label=self._t("Query / command"), multiline=True, min_lines=3, max_lines=8,
                                 text_style=ft.TextStyle(font_family="monospace", size=12))
         self.body = ft.Column(spacing=8)
         self.control = ft.ListView(padding=theme.SPACE, spacing=theme.SPACE, controls=[
-            ft.Row([ft.Text("Databases", size=22, weight=ft.FontWeight.W_600, expand=True),
-                    ft.IconButton(ft.Icons.REFRESH, width=44, height=44, tooltip="Refresh", on_click=lambda _: self.page.run_task(self.refresh))], scroll=ft.ScrollMode.AUTO),
-            ft.Row([self.engine_dd, ft.FilledTonalButton("Connection…", icon=ft.Icons.KEY, on_click=lambda _: self.open_auth())]),
+            ft.Row([ft.Text(self._t("Databases"), size=22, weight=ft.FontWeight.W_600, expand=True),
+                    ft.IconButton(ft.Icons.REFRESH, width=44, height=44, tooltip=self._t("Refresh"), on_click=lambda _: self.page.run_task(self.refresh))], scroll=ft.ScrollMode.AUTO),
+            ft.Row([self.engine_dd, ft.FilledTonalButton(self._t("Connection…"), icon=ft.Icons.KEY, on_click=lambda _: self.open_auth())]),
             self.seg, self.progress, self.body])
         self.render()
 
@@ -165,7 +171,7 @@ class DatabasesView:
                 self.result = r
             return
         if e == "sqlite" and not self.auth.path:
-            self.names, self.result = [], D.Result(text="Enter the SQLite file path under “Connection…”.")
+            self.names, self.result = [], D.Result(text=self._t("Enter the SQLite file path under “Connection…”"))
             return
         if self.table:
             res = await self.q(D.sql_rows(e, self.db, self.table, self.page_no), self.db if e != "sqlite" else "")
@@ -195,30 +201,30 @@ class DatabasesView:
         e = self.engine
         out: list[ft.Control] = [self._crumbs()]
         if e == "redis":
-            out.append(ft.TextField(label="Redis database number", value=self.redis_db, width=200, keyboard_type=ft.KeyboardType.NUMBER,
+            out.append(ft.TextField(label=self._t("Redis database number"), value=self.redis_db, width=200, keyboard_type=ft.KeyboardType.NUMBER,
                                     on_submit=lambda ev: self._set_redis_db(ev.control.value)))
             if self.result and self.result.error:
-                return out + [result_grid(self.result)]
+                return out + [result_grid(self.result, self._t)]
             out += [ft.ListTile(title=ft.Text(k, no_wrap=True), dense=True, leading=ft.Icon(ft.Icons.KEY, size=18),
                                 on_click=lambda _, k=k: self.page.run_task(self.redis_key, k)) for k in self.names[:200]]
-            return out + ([] if self.names else [ft.Text("No keys found.", opacity=0.7)])
+            return out + ([] if self.names else [ft.Text(self._t("No keys found."), opacity=0.7)])
         if self.table:
             res = self.result or D.Result(text="…")
-            out.append(ft.Row([ft.Text(f"page {self.page_no + 1}" + (f" · {self.total} rows" if self.total else ""), size=12, expand=True),
+            out.append(ft.Row([ft.Text(self._t("page {n}").format(n=self.page_no + 1) + (self._t(" {n} rows").format(n=self.total) if self.total else ""), size=12, expand=True),
                                ft.IconButton(ft.Icons.CHEVRON_LEFT, width=40, height=40, disabled=self.page_no == 0, on_click=lambda _: self._page(-1)),
                                ft.IconButton(ft.Icons.CHEVRON_RIGHT, width=40, height=40, disabled=len(res.rows) < D.PAGE, on_click=lambda _: self._page(1)),
-                               ft.TextButton("Structure", on_click=lambda _: self.page.run_task(self.structure)),
-                               ft.TextButton("Copy CSV", on_click=lambda _: self.page.run_task(self.ctx.terminal.copy_text, to_csv(res)))],
+                               ft.TextButton(self._t("Structure"), on_click=lambda _: self.page.run_task(self.structure)),
+                               ft.TextButton(self._t("Copy CSV"), on_click=lambda _: self.page.run_task(self.ctx.terminal.copy_text, to_csv(res)))],
                               wrap=True, spacing=0))
-            return out + [result_grid(res)]
+            return out + [result_grid(res, self._t)]
         if self.result and self.result.error:
-            return out + [result_grid(self.result)]
+            return out + [result_grid(self.result, self._t)]
         if self.result and not self.names:
             return out + [ft.Text(self.result.text, opacity=0.7)]
         icon = ft.Icons.STORAGE if not self.db and e != "sqlite" else ft.Icons.TABLE_CHART
         out += [ft.ListTile(title=ft.Text(n, no_wrap=True), dense=True, leading=ft.Icon(icon, size=18),
                             on_click=lambda _, n=n: self._open(n)) for n in self.names]
-        return out + ([] if self.names else [ft.Text("Nothing here.", opacity=0.7)])
+        return out + ([] if self.names else [ft.Text(self._t("Nothing here."), opacity=0.7)])
 
     def _open(self, name: str) -> None:
         if self.engine == "sqlite" or self.db:
@@ -237,16 +243,16 @@ class DatabasesView:
     async def structure(self) -> None:
         res = await self.q(D.sql_describe(self.engine, self.db, self.table), self.db if self.engine != "sqlite" else "")
         self.page.show_dialog(ft.AlertDialog(title=ft.Text(self.table), scrollable=True,
-                                             content=ft.Container(width=min(380, (page.width or 400) - 32), content=result_grid(res)),
-                                             actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
+                                             content=ft.Container(width=min(380, (page.width or 400) - 32), content=result_grid(res, self._t)),
+                                             actions=[ft.TextButton(self._t("Close"), on_click=lambda _: self.page.pop_dialog())]))
 
     async def redis_key(self, key: str) -> None:
         t = await self.qr(["TYPE", key], 5)
         r = await self.qr(D.redis_inspect_args(key, t.text.strip()), 100)
         self.page.show_dialog(ft.AlertDialog(title=ft.Text(key, no_wrap=True), scrollable=True,
                                              content=ft.Container(width=min(380, (page.width or 400) - 32), content=ft.Column([
-                                                 ft.Text(f"type: {t.text.strip()}", size=11, opacity=0.7), result_grid(r)], tight=True)),
-                                             actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())]))
+                                                 ft.Text(self._t("type: {t}").format(t=t.text.strip()), size=11, opacity=0.7), result_grid(r, self._t)], tight=True)),
+                                             actions=[ft.TextButton(self._t("Close"), on_click=lambda _: self.page.pop_dialog())]))
 
     # ---- query ----
     async def run_query(self) -> None:
@@ -257,22 +263,24 @@ class DatabasesView:
             try:
                 args = shlex.split(text)
             except ValueError:
-                toast(self.page, "Unbalanced quotes in the command.", error=True)
+                toast(self.page, self._t("Unbalanced quotes in the command."), error=True)
                 return
             kind = D.redis_kind(args)
         else:
             kind = D.sql_kind(text)
         if kind == "blocked":
-            self.result = D.Result(error="Blocked: this can read or write files on the server, run programs, or change server "
-                                         "configuration. Use the terminal if you really need it.")
+            self.result = D.Result(error=self._t("Blocked: this can read or write files on the server, run programs, or change server "
+                                         "configuration. Use the terminal if you really need it."))
             self.render()
             return
-        if kind == "destructive" and not await self.ctx.ask_typed("Destructive statement", f"{text[:600]}\n\nThis can permanently "
-                                                                  "delete or change data. Consider a dump first.", "RUN"):
+        if kind == "destructive" and not await self.ctx.ask_typed(self._t("Destructive statement"),
+                                                                  self._t("{text}\n\nThis can permanently "
+                                                                  "delete or change data. Consider a dump first.").format(text=text[:600]),
+                                                                  "RUN"):
             return
-        if kind == "write" and not await self.ctx.ask_yes_no("This changes data", text[:600], "Run"):
+        if kind == "write" and not await self.ctx.ask_yes_no(self._t("This changes data"), text[:600], self._t("Run")):
             return
-        if kind != "read" and not await self.ctx.safe_confirm("Run a data-changing statement", text[:300]):
+        if kind != "read" and not await self.ctx.safe_confirm(self._t("Run a data-changing statement"), text[:300]):
             return
         self.progress.visible = True
         self.render()
@@ -297,7 +305,7 @@ class DatabasesView:
 
     async def make_dump(self, db: str) -> None:
         if not db and self.engine != "sqlite":
-            toast(self.page, "Choose a database first.", error=True)
+            toast(self.page, self._t("Choose a database first."), error=True)
             return
         dest = posixpath.join(self.dump_dir, f"{slug(db or posixpath.basename(self.auth.path))}-{time.strftime('%Y%m%d-%H%M%S')}.sql.gz")
         try:
@@ -305,52 +313,57 @@ class DatabasesView:
         except ValueError as e:
             toast(self.page, str(e), error=True)
             return
-        if not await self.ctx.ask_yes_no("Create a dump?", f"{db or self.auth.path}\n→ {dest}\n\nThe file contains your data; it is created "
-                                         "readable by its owner only.", "Create"):
+        if not await self.ctx.ask_yes_no(self._t("Create a dump?"),
+                                         self._t("{db}\n→ {dest}\n\nThe file contains your data; it is created "
+                                         "readable by its owner only.").format(db=db or self.auth.path, dest=dest),
+                                         self._t("Create")):
             return
-        rep = await run_in_sheet(self.ctx, f"Dump {db}", [Step("dump", c.cmd, sudo=c.privileged, stdin=c.stdin)],
+        rep = await run_in_sheet(self.ctx, self._t("Dump {db}").format(db=db), [Step("dump", c.cmd, sudo=c.privileged, stdin=c.stdin)],
                                  {"kind": "database", "name": f"dump {db}", "command": f"database dump ({self.engine})", "risk": "writes"})
         if rep is not None:
             await self.refresh()
 
     async def restore(self, e, db: str) -> None:
         if not db and self.engine != "sqlite":
-            toast(self.page, "Choose the target database first.", error=True)
+            toast(self.page, self._t("Choose the target database first."), error=True)
             return
-        if not await self.ctx.ask_typed("Restore a dump?", f"This loads {e.name} into “{db or self.auth.path}” and can overwrite or "
-                                        "duplicate existing data. Make a fresh dump first if you might need to go back.", "RESTORE"):
+        if not await self.ctx.ask_typed(self._t("Restore a dump?"),
+                                        self._t("This loads {file} into “{db}” and can overwrite or "
+                                        "duplicate existing data. Make a fresh dump first if you might need to go back.").format(
+                                        file=e.name, db=db or self.auth.path),
+                                        "RESTORE"):
             return
         try:
             c = D.restore_command(self.engine, self.auth, db, e.path)
         except ValueError as ex:
             toast(self.page, str(ex), error=True)
             return
-        await run_in_sheet(self.ctx, f"Restore {db}", [Step("restore", c.cmd, sudo=c.privileged, stdin=c.stdin)],
+        await run_in_sheet(self.ctx, self._t("Restore {db}").format(db=db), [Step("restore", c.cmd, sudo=c.privileged, stdin=c.stdin)],
                            {"kind": "database", "name": f"restore {db}", "command": f"database restore ({self.engine})", "risk": "destructive"})
 
     def _dumps_ui(self) -> list[ft.Control]:
         if self.engine == "redis":
-            return [ft.Text("Redis isn't dumped here. Copy dump.rdb from its data directory (see the Files page).", opacity=0.7)]
-        target = ft.Dropdown(label="Database", value=self.db or None, options=[ft.DropdownOption(key=n) for n in self.names],
+            return [ft.Text(self._t("Redis isn't dumped here. Copy dump.rdb from its data directory (see the Files page)."), opacity=0.7)]
+        target = ft.Dropdown(label=self._t("Database"), value=self.db or None, options=[ft.DropdownOption(key=n) for n in self.names],
                              visible=self.engine != "sqlite", on_select=lambda ev: setattr(self, "db", ev.control.value))
-        out: list[ft.Control] = [target, ft.FilledButton("Create dump", icon=ft.Icons.BACKUP,
+        out: list[ft.Control] = [target, ft.FilledButton(self._t("Create dump"), icon=ft.Icons.BACKUP,
                                                            on_click=lambda _: self.page.run_task(self.make_dump, self.db))]
-        out.append(ft.Text(f"Dumps in {self.dump_dir}", size=12, opacity=0.7))
+        out.append(ft.Text(self._t("Dumps in {dir}").format(dir=self.dump_dir), size=12, opacity=0.7))
         for e in sorted(getattr(self, "dumps", []), key=lambda x: -x.mtime)[:30]:
             out.append(ft.Container(border_radius=theme.RADIUS, padding=theme.SPACE, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
                 content=ft.Row([ft.Icon(ft.Icons.ARCHIVE), ft.Column([ft.Text(e.name, size=12, weight=ft.FontWeight.W_600, no_wrap=True),
                                 ft.Text(f"{human_size(e.size)} · {fmt_mtime(e.mtime)}", size=11, opacity=0.7)], spacing=0, expand=True),
-                                ft.IconButton(ft.Icons.DOWNLOAD, width=40, height=40, tooltip="Download", on_click=lambda _, e=e: self._download(e)),
-                                ft.IconButton(ft.Icons.RESTORE, width=40, height=40, tooltip="Restore…",
+                                ft.IconButton(ft.Icons.DOWNLOAD, width=40, height=40, tooltip=self._t("Download"), on_click=lambda _, e=e: self._download(e)),
+                                ft.IconButton(ft.Icons.RESTORE, width=40, height=40, tooltip=self._t("Restore…"),
                                               on_click=lambda _, e=e: self.page.run_task(self.restore, e, self.db)),
-                                ft.IconButton(ft.Icons.DELETE, width=40, height=40, tooltip="Delete", on_click=lambda _, e=e: self._delete(e))],
+                                ft.IconButton(ft.Icons.DELETE, width=40, height=40, tooltip=self._t("Delete"), on_click=lambda _, e=e: self._delete(e))],
                                vertical_alignment=ft.CrossAxisAlignment.CENTER)))
         return out
 
     def _download(self, e) -> None:
         dest = resolve_download_dir(self.ctx.store.data)
         self.ctx.transfers.add_download(e.path, str(unique_local_path(dest, e.name)), e.name, e.size)
-        toast(self.page, f"Queued download → {dest}")
+        toast(self.page, self._t("Queued download → {dest}").format(dest=dest))
 
     def _delete(self, e) -> None:
         async def do():
@@ -360,7 +373,7 @@ class DatabasesView:
             except TakError as ex:
                 toast(self.page, ex.message, error=True)
             await self.refresh()
-        confirm(self.page, "Delete this dump?", e.name, do, yes_label="Delete")
+        confirm(self.page, self._t("Delete this dump?"), e.name, do, yes_label=self._t("Delete"))
 
     # ---- connection dialog ----
     def open_auth(self) -> None:
@@ -368,25 +381,25 @@ class DatabasesView:
             return
         page, a, eng = self.page, self.auth, self.engine
         has_pw = self.ctx.db_profiles.has_password(self.cid, eng)
-        mode = ft.Dropdown(label="Sign in", value=a.mode, options=[
-            ft.DropdownOption(key="socket", text={"mysql": "As root on the server (socket, uses sudo)", "postgres": "As the postgres user (uses sudo)"}.get(eng, "Local / no password")),
-            ft.DropdownOption(key="password", text="With a user and password")], visible=eng in ("mysql", "postgres", "redis"))
-        user = ft.TextField(label="User", value=a.user, visible=eng in ("mysql", "postgres"))
-        pw = ft.TextField(label="Password", password=True, can_reveal_password=True,
-                          hint_text="Leave blank to keep the saved one" if has_pw else "", visible=eng in ("mysql", "postgres", "redis"))
-        host = ft.TextField(label="Host (as the server sees it)", value=a.host or "127.0.0.1", visible=eng != "sqlite")
-        port = ft.TextField(label="Port (blank = default)", value=str(a.port or ""), keyboard_type=ft.KeyboardType.NUMBER, visible=eng != "sqlite")
-        path = ft.TextField(label="SQLite file (absolute path)", value=a.path, visible=eng == "sqlite")
-        sudo = ft.Switch(label="Read as administrator (sudo)", value=a.sudo, visible=eng in ("sqlite", "redis"))
+        mode = ft.Dropdown(label=self._t("Sign in"), value=a.mode, options=[
+            ft.DropdownOption(key="socket", text=self._t({"mysql": "As root on the server (socket, uses sudo)", "postgres": "As the postgres user (uses sudo)"}.get(eng, "Local / no password"))),
+            ft.DropdownOption(key="password", text=self._t("With a user and password"))], visible=eng in ("mysql", "postgres", "redis"))
+        user = ft.TextField(label=self._t("User"), value=a.user, visible=eng in ("mysql", "postgres"))
+        pw = ft.TextField(label=self._t("Password"), password=True, can_reveal_password=True,
+                          hint_text=self._t("Leave blank to keep the saved one") if has_pw else "", visible=eng in ("mysql", "postgres", "redis"))
+        host = ft.TextField(label=self._t("Host (as the server sees it)"), value=a.host or "127.0.0.1", visible=eng != "sqlite")
+        port = ft.TextField(label=self._t("Port (blank = default)"), value=str(a.port or ""), keyboard_type=ft.KeyboardType.NUMBER, visible=eng != "sqlite")
+        path = ft.TextField(label=self._t("SQLite file (absolute path)"), value=a.path, visible=eng == "sqlite")
+        sudo = ft.Switch(label=self._t("Read as administrator (sudo)"), value=a.sudo, visible=eng in ("sqlite", "redis"))
 
         async def save(_):
             try:
                 auth = D.Auth(mode=mode.value or "socket", user=(user.value or "").strip(), host=(host.value or "127.0.0.1").strip(),
                               port=int(port.value) if (port.value or "").strip() else 0, path=(path.value or "").strip(), sudo=sudo.value)
                 if auth.mode == "password" and eng in ("mysql", "postgres") and not auth.user:
-                    raise ValueError("Enter the database user.")
+                    raise ValueError(self._t("Enter the database user."))
             except ValueError as e:
-                toast(page, str(e) if "user" in str(e) else "Port must be a number.", error=True)
+                toast(page, str(e) if "user" in str(e) else self._t("Port must be a number."), error=True)
                 return
             secret = None if not (pw.value or "") else pw.value
             if secret and not await self.ctx.ensure_unlocked():
@@ -398,24 +411,24 @@ class DatabasesView:
             page.pop_dialog()
             await self.refresh()
         page.show_dialog(ft.AlertDialog(
-                        title=ft.Text(f"{D.ENGINES[eng]} connection"), scrollable=True,
+                        title=ft.Text(self._t("{engine} connection").format(engine=D.ENGINES[eng])), scrollable=True,
             content=ft.Container(width=340, content=ft.Column([mode, user, pw, host, port, path, sudo,
-                ft.Text("The password is stored encrypted on this phone and sent to the server on stdin — never in a command line.",
+                ft.Text(self._t("The password is stored encrypted on this phone and sent to the server on stdin — never in a command line."),
                         size=11, opacity=0.7)], tight=True, spacing=theme.SPACE)),
-            actions=[ft.TextButton("Cancel", on_click=lambda _: page.pop_dialog()), ft.FilledButton("Save", on_click=save)]))
+            actions=[ft.TextButton(self._t("Cancel"), on_click=lambda _: page.pop_dialog()), ft.FilledButton(self._t("Save"), on_click=save)]))
 
     # ---- rendering ----
     def render(self) -> None:
         if self.engines is None or not self.engine:
-            self.body.controls = [ft.Container(padding=24, content=ft.Text(self.msg, opacity=0.7))]
+            self.body.controls = [ft.Container(padding=24, content=ft.Text(self._t(self.msg), opacity=0.7))]
         elif self.mode == "browse":
             self.body.controls = self._browse_ui()
         elif self.mode == "query":
-            hint = "Redis command, e.g. GET mykey" if self.engine == "redis" else "SQL (read-only queries run straight away; changes ask first)"
+            hint = self._t("Redis command, e.g. GET mykey") if self.engine == "redis" else self._t("SQL (read-only queries run straight away; changes ask first)")
             self.sql.label = hint
-            self.body.controls = [self.sql, ft.Row([ft.FilledButton("Run", icon=ft.Icons.PLAY_ARROW, on_click=lambda _: self.page.run_task(self.run_query)),
-                                                    ft.Text(f"on {self.db}" if self.db else "", size=11, opacity=0.7)], scroll=ft.ScrollMode.AUTO),
-                                  result_grid(self.result) if self.result else ft.Text("Results appear here.", opacity=0.6)]
+            self.body.controls = [self.sql, ft.Row([ft.FilledButton(self._t("Run"), icon=ft.Icons.PLAY_ARROW, on_click=lambda _: self.page.run_task(self.run_query)),
+                                                    ft.Text(self._t("on {db}").format(db=self.db) if self.db else "", size=11, opacity=0.7)], scroll=ft.ScrollMode.AUTO),
+                                  result_grid(self.result, self._t) if self.result else ft.Text(self._t("Results appear here."), opacity=0.6)]
         else:
             self.body.controls = self._dumps_ui()
         try:

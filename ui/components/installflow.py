@@ -9,6 +9,7 @@ import flet as ft
 from core.errors import TakError
 from services import installplan as IP
 from services import packages as P
+from services.i18n import translate
 from .. import theme
 from .common import toast
 from .runsheet import run_in_sheet
@@ -20,14 +21,16 @@ _ICON = {"ok": (ft.Icons.CHECK_CIRCLE, ft.Colors.GREEN), "warn": (ft.Icons.WARNI
 async def run_install_flow(ctx, kind: str) -> bool:
     """kind: "docker" | "nginx". Returns True if the install ran and succeeded."""
     page = ctx.page
+    lang = ctx.store.data.language
+    _t = lambda s: translate(s, lang)  # noqa: E731
     if ctx.ssh.status.value != "connected":
-        toast(page, "Not connected.", error=True)
+        toast(page, _t("Not connected."), error=True)
         return False
     title = "Docker" if kind == "docker" else "Nginx"
 
     page.show_dialog(ft.AlertDialog(modal=True, title=ft.Text(f"Checking this server for {title}…"),
                                     content=ft.Row([ft.ProgressRing(width=20, height=20, stroke_width=2),
-                                                    ft.Text("Read-only checks only.")], tight=True)))
+                                                    ft.Text(_t("Read-only checks only."))], tight=True)))
     try:
         r = await ctx.ssh.run(IP.PREFLIGHT_CMD, timeout=40)
     except TakError as e:
@@ -48,7 +51,7 @@ async def run_install_flow(ctx, kind: str) -> bool:
 
     fut: asyncio.Future = asyncio.get_running_loop().create_future()
     body = ft.Column(tight=True, spacing=theme.SPACE, scroll=ft.ScrollMode.AUTO)
-    ok_btn = ft.FilledButton("Install")
+    ok_btn = ft.FilledButton(_t("Install"))
 
     def done(v: bool) -> None:
         page.pop_dialog()
@@ -57,7 +60,7 @@ async def run_install_flow(ctx, kind: str) -> bool:
 
     def draw() -> None:
         plan = plan_now()
-        rows: list[ft.Control] = [ft.Text("Preflight checks", weight=ft.FontWeight.W_600)]
+        rows: list[ft.Control] = [ft.Text(_t("Preflight checks"), weight=ft.FontWeight.W_600)]
         for c in plan.checks:
             icon, color = _ICON[c.status]
             rows.append(ft.Row([ft.Icon(icon, color=color, size=18),
@@ -66,19 +69,20 @@ async def run_install_flow(ctx, kind: str) -> bool:
                                vertical_alignment=ft.CrossAxisAlignment.START))
         if plan.blocked:
             rows.append(ft.Container(padding=10, border_radius=8, bgcolor=ft.Colors.ERROR_CONTAINER, content=ft.Text(
-                "Installation can't continue: " + "; ".join(c.name for c in plan.blockers) + ". Nothing was changed.")))
+                _t("Installation can't continue: {blockers}. Nothing was changed.").format(
+                    blockers="; ".join(c.name for c in plan.blockers)))))
         else:
             rows.append(ft.Divider())
-            rows.append(ft.Text("What will happen", weight=ft.FontWeight.W_600))
+            rows.append(ft.Text(_t("What will happen"), weight=ft.FontWeight.W_600))
             rows += [ft.Text("• " + c, size=12) for c in plan.changes]
             rows.append(ft.Text(f"Estimated disk use: {plan.est_disk}", size=12))
             if kind == "docker":
-                rows.append(ft.Checkbox(label="Also run the hello-world test container", value=opts["hello"],
+                rows.append(ft.Checkbox(label=_t("Also run the hello-world test container"), value=opts["hello"],
                                         on_change=lambda e: (opts.__setitem__("hello", e.control.value), draw(), page.update())))
                 rows.append(ft.Checkbox(label=f"Add “{user}” to the docker group (optional)", value=opts["group"],
                                         on_change=lambda e: (opts.__setitem__("group", e.control.value), draw(), page.update())))
             rows += [ft.Text("⚠ " + w, size=12, color=ft.Colors.ERROR) for w in plan.warnings]
-            rows.append(ft.ExpansionTile(title=ft.Text("Commands that will run", size=13), controls=[
+            rows.append(ft.ExpansionTile(title=ft.Text(_t("Commands that will run"), size=13), controls=[
                 ft.Container(padding=10, content=ft.Text(
                     "\n".join(("sudo " if s.sudo and sudo != "root" else "") + s.cmd for s in plan.steps),
                     font_family="monospace", size=10, selectable=True))]))
@@ -90,7 +94,7 @@ async def run_install_flow(ctx, kind: str) -> bool:
     page.show_dialog(ft.AlertDialog(
         modal=True, title=ft.Text(f"Install {title}?"), scrollable=True,
         content=ft.Container(width=360, content=body),
-        actions=[ft.TextButton("Cancel", on_click=lambda _: done(False)), ok_btn]))
+        actions=[ft.TextButton(_t("Cancel"), on_click=lambda _: done(False)), ok_btn]))
     if not await fut:
         return False
 
