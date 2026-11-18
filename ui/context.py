@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import inspect
 import shlex
 from dataclasses import dataclass, field
 from typing import Callable, Optional
@@ -362,10 +361,10 @@ class AppContext:
         return r
 
     async def open_url(self, url: str) -> None:
+        """Open a URL in the system browser/app using Flet 1.x's UrlLauncher service."""
         try:
-            r = self.page.launch_url(url)
-            if inspect.isawaitable(r):
-                await r
+            from services.urlutil import launch_url
+            await launch_url(self.page, url)
         except Exception:  # noqa: BLE001
             toast(self.page, translate("Couldn't open the browser.", self.store.data.language), error=True)
 

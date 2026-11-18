@@ -287,7 +287,7 @@ def settings_page(ctx: AppContext) -> ft.Control:
             ft.FilledTonalButton(_t("App page"), icon=ft.Icons.INFO,
                                  on_click=lambda _: _myket_open(ctx)),
         ], spacing=8, scroll=ft.ScrollMode.AUTO),
-        ft.Text(f"TAKVPS v1.4.5 · {_t('Client-only SSH/VPS manager')}",
+        ft.Text(f"TAKVPS v1.4.6 · {_t('Client-only SSH/VPS manager')}",
                 size=11, opacity=0.5),
     ])
 
@@ -450,21 +450,30 @@ def _ask_passphrase(ctx: AppContext, title: str, on_ok, extra_content: ft.Contro
 
 def _myket_check_update(ctx: AppContext) -> None:
     """Open Myket's update check dialog."""
-    from services.myket import check_for_update
     from services.i18n import translate
     _t = lambda s: translate(s, ctx.store.data.language)  # noqa: E731
-    if not check_for_update(ctx.page):
-        toast(ctx.page, _t("Couldn't open Myket. Is it installed?"), error=True)
+
+    async def run():
+        from services.myket import check_for_update
+        ok = await check_for_update(ctx.page)
+        if not ok:
+            toast(ctx.page, _t("Couldn't open Myket. Is it installed?"), error=True)
+    ctx.page.run_task(run)
 
 
 def _myket_rate(ctx: AppContext) -> None:
     """Open the Myket rating/review flow. Asks permission first."""
     from services.i18n import translate
     _t = lambda s: translate(s, ctx.store.data.language)  # noqa: E731
+
     def do_rate():
-        from services.myket import open_rating
-        if not open_rating(ctx.page):
-            toast(ctx.page, _t("Couldn't open Myket. Is it installed?"), error=True)
+        async def run():
+            from services.myket import open_rating
+            ok = await open_rating(ctx.page)
+            if not ok:
+                toast(ctx.page, _t("Couldn't open Myket. Is it installed?"), error=True)
+        ctx.page.run_task(run)
+
     confirm(ctx.page, _t("Rate on Myket?"),
             _t("This will open Myket's rating page for TAKVPS. You can rate and review the app there."),
             do_rate, yes_label=_t("Open Myket"))
@@ -472,8 +481,12 @@ def _myket_rate(ctx: AppContext) -> None:
 
 def _myket_open(ctx: AppContext) -> None:
     """Open the app's Myket details page."""
-    from services.myket import open_app_page
     from services.i18n import translate
     _t = lambda s: translate(s, ctx.store.data.language)  # noqa: E731
-    if not open_app_page(ctx.page):
-        toast(ctx.page, _t("Couldn't open Myket. Is it installed?"), error=True)
+
+    async def run():
+        from services.myket import open_app_page
+        ok = await open_app_page(ctx.page)
+        if not ok:
+            toast(ctx.page, _t("Couldn't open Myket. Is it installed?"), error=True)
+    ctx.page.run_task(run)
