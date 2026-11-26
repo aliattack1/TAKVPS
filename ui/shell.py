@@ -488,9 +488,11 @@ class Shell:
                 # so the FAB doesn't crowd the page content.
                 page_width = p.width or 400
                 if page_width >= 400:
+                    # Flet 1.x: FloatingActionButton has no `text=` kwarg —
+                    # use `content=ft.Text(...)` for an extended (icon+label) FAB.
                     p.floating_action_button = ft.FloatingActionButton(
                         icon=ft.Icons.SMART_TOY,
-                        text=_t("Ask AI"),
+                        content=ft.Text(_t("Ask AI")),
                         tooltip=_t("AI assistant"),
                         on_click=lambda _: self.open_chat(),
                     )

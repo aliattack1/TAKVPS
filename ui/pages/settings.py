@@ -287,7 +287,7 @@ def settings_page(ctx: AppContext) -> ft.Control:
             ft.FilledTonalButton(_t("App page"), icon=ft.Icons.INFO,
                                  on_click=lambda _: _myket_open(ctx)),
         ], spacing=8, scroll=ft.ScrollMode.AUTO),
-        ft.Text(f"TAKVPS v1.4.6 · {_t('Client-only SSH/VPS manager')}",
+        ft.Text(f"TAKVPS v1.4.7 · {_t('Client-only SSH/VPS manager')}",
                 size=11, opacity=0.5),
     ])
 
